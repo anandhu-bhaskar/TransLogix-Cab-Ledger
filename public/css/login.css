@@ -1,0 +1,237 @@
+html, body.login-body {
+  height: 100%;
+  margin: 0;
+  background: #f5f5f5;
+  overflow: hidden;
+}
+
+.login-layout {
+  display: flex;
+  height: 100vh;
+}
+
+/* ── Left car panel ── */
+.login-car {
+  flex: 1 1 55%;
+  position: relative;
+  background: linear-gradient(160deg, #1a1a1a 0%, #2d0a0a 60%, #111 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 32px;
+}
+
+.login-car-brand {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 5;
+}
+
+.login-car-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: .3px;
+}
+
+.login-car .mv-wrap {
+  width: 100%;
+  min-height: 0;
+  height: 65vh;
+  border-radius: 0;
+  background: transparent;
+}
+
+.login-car .mv-wrap:before {
+  background:
+    radial-gradient(100% 60% at 50% 30%, rgba(155,28,28,.22), transparent 65%);
+}
+
+.login-car .mv-car {
+  height: 65vh;
+}
+
+.login-car .mv-status {
+  background: rgba(0,0,0,.70);
+  border-color: rgba(255,255,255,.14);
+  color: #e5e7eb;
+}
+
+.login-car-sub {
+  position: absolute;
+  bottom: 32px;
+  left: 32px;
+  right: 32px;
+  text-align: center;
+  color: rgba(255,255,255,.45);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .2px;
+  z-index: 5;
+}
+
+/* ── Right auth panel ── */
+.login-panel {
+  flex: 0 0 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-left: 1px solid rgba(0,0,0,.08);
+  padding: 32px 24px;
+  overflow-y: auto;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 340px;
+}
+
+/* Tabs */
+.login-tabs {
+  display: flex;
+  border-bottom: 2px solid rgba(0,0,0,.08);
+  margin-bottom: 24px;
+  gap: 0;
+}
+
+.login-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #9ca3af;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 140ms, border-color 140ms;
+}
+
+.login-tab.active {
+  color: #7f1d1d;
+  border-bottom-color: #9b1c1c;
+}
+
+/* Error */
+.login-error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(155,28,28,.08);
+  border: 1px solid rgba(155,28,28,.22);
+  color: #7f1d1d;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.login-submit {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 12px;
+  background: #9b1c1c;
+  border-color: #7f1d1d;
+  color: #fff;
+}
+
+.login-submit:hover {
+  background: #7f1d1d;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(155,28,28,.25);
+}
+
+/* Divider */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.login-divider:before,
+.login-divider:after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(0,0,0,.10);
+}
+
+/* Google button */
+.login-google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.14);
+  background: #fff;
+  color: #111;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  transition: box-shadow 140ms, transform 140ms, background 140ms;
+}
+
+.login-google:hover {
+  background: #f9fafb;
+  box-shadow: 0 4px 12px rgba(0,0,0,.10);
+  transform: translateY(-1px);
+}
+
+.login-google.disabled {
+  opacity: .45;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 760px) {
+  .login-layout { flex-direction: column; overflow: auto; }
+  html, body.login-body { overflow: auto; }
+  .login-car {
+    flex: 0 0 auto;
+    height: 42vh;
+    padding: 20px;
+  }
+  .login-car .mv-wrap,
+  .login-car .mv-car { height: 34vh; }
+  .login-car-sub { display: none; }
+  .login-panel {
+    flex: 1 1 auto;
+    border-left: none;
+    border-top: 1px solid rgba(0,0,0,.08);
+  }
+}

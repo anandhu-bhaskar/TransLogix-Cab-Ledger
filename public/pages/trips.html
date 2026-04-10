@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transport Billing — Trips</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="fx-bg" aria-hidden="true">
+      <div class="fx-blob b1"></div>
+      <div class="fx-blob b2"></div>
+      <div class="fx-blob b3"></div>
+      <div class="fx-noise"></div>
+      <div class="fx-vignette"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/pages/index.html" aria-label="Dashboard">
+          <span class="brand-badge" aria-hidden="true"></span>
+          <span>Transport Billing<small>Trips</small></span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/pages/index.html">Dashboard</a>
+          <a class="active" href="/pages/trips.html">Trips</a>
+          <a href="/pages/payments.html">Payments</a>
+          <a href="/pages/clients.html">Clients</a>
+          <a href="/pages/workers.html">Workers</a>
+          <a href="/pages/invoice.html">Invoice</a>
+          <a href="/pages/settings.html">Settings</a>
+          <button class="btn small" id="logoutBtn" type="button">Sign out</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="grid cols-2" style="margin-top:14px">
+
+        <!-- Add trip form -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Add trip</div>
+              <div class="card-subtitle">Log a shift and billing</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="tripForm">
+              <div class="grid" style="gap:12px">
+
+                <!-- Date -->
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Date</div>
+                  <input id="date" type="date" class="input" required />
+                </label>
+
+                <!-- Route -->
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Route</div>
+                  <select id="routeId" class="input" required></select>
+                </label>
+
+                <!-- Custom route (shown when Other selected) -->
+                <label id="customRouteWrap" style="display:none">
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Specify route name</div>
+                  <input id="customRouteName" type="text" class="input" placeholder="e.g. Heathrow Terminal 5" />
+                </label>
+
+                <!-- Variant (hidden for custom routes) -->
+                <label id="variantWrap">
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Variant</div>
+                  <select id="variant" class="input">
+                    <option value="">—</option>
+                  </select>
+                </label>
+
+                <!-- Workers on trip -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">People on trip</div>
+                  <div id="workersBox" class="workers-box"></div>
+                  <!-- Other names input, shown when Other chip active -->
+                  <div id="otherNamesWrap" style="display:none;margin-top:8px">
+                    <input id="otherNames" type="text" class="input" placeholder="Type names separated by commas…" />
+                  </div>
+                  <div class="footer-note">Tap to select. Use <strong>Other</strong> for unlisted names, <strong>Unspecified</strong> if unknown.</div>
+                </div>
+
+                <!-- Total amount + number of people -->
+                <div class="grid cols-2">
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Total amount (£)</div>
+                    <input id="totalAmount" type="number" step="0.01" min="0" class="input" required />
+                  </label>
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">No. of people</div>
+                    <input id="numberOfPeople" type="number" min="1" step="1" class="input" placeholder="Auto" />
+                  </label>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div class="muted" style="font-weight:700;font-size:13px">Per person:</div>
+                  <div class="pill" id="amountPerPayer">£0.00</div>
+                </div>
+
+                <!-- Payment method -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:8px">Payment method</div>
+                  <div class="row" style="gap:8px">
+                    <button type="button" class="btn pay-method-btn active-method" id="btnDirect" data-method="direct">Direct</button>
+                    <button type="button" class="btn pay-method-btn" id="btnPartner" data-method="partner">Partner</button>
+                  </div>
+                  <input type="hidden" id="paymentMethod" value="direct" />
+                </div>
+
+                <!-- Direct: choose payers -->
+                <div id="directWrap">
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Who is paying?</div>
+                  <div id="payersBox" class="workers-box"></div>
+                  <div class="footer-note">Select clients paying for this trip. Amount splits equally among selected.</div>
+                </div>
+
+                <!-- Partner: choose partner -->
+                <div id="partnerWrap" style="display:none">
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Partner</div>
+                    <select id="partnerClientId" class="input">
+                      <option value="">Select partner…</option>
+                    </select>
+                  </label>
+                </div>
+
+                <!-- Notes -->
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Notes</div>
+                  <textarea id="notes" class="input" rows="2" placeholder="Optional notes…"></textarea>
+                </label>
+
+                <div class="row">
+                  <button type="submit" class="btn primary">Save trip</button>
+                  <button type="button" class="btn" id="resetBtn">Reset</button>
+                </div>
+
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Trips ledger -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Trips ledger</div>
+              <div class="card-subtitle">Most recent first</div>
+            </div>
+            <button class="btn small" id="refreshBtn" type="button">Refresh</button>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table style="min-width:700px">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Route</th>
+                    <th>People</th>
+                    <th>No.</th>
+                    <th>Payment</th>
+                    <th>Amount</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tripsTbody"></tbody>
+              </table>
+            </div>
+            <div class="footer-note" id="tripsEmpty" style="display:none">No trips found.</div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/js/ui.js"></script>
+    <script src="/js/auth-guard.js"></script>
+    <script src="/js/trips.js"></script>
+  </body>
+</html>

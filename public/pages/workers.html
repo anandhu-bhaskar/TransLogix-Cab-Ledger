@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transport Billing — Workers</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="fx-bg" aria-hidden="true">
+      <div class="fx-blob b1"></div>
+      <div class="fx-blob b2"></div>
+      <div class="fx-blob b3"></div>
+      <div class="fx-noise"></div>
+      <div class="fx-vignette"></div>
+    </div>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/pages/index.html" aria-label="Dashboard">
+          <span class="brand-badge" aria-hidden="true"></span>
+          <span>Transport Billing<small>Workers</small></span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a href="/pages/index.html">Dashboard</a>
+          <a href="/pages/trips.html">Trips</a>
+          <a href="/pages/payments.html">Payments</a>
+          <a href="/pages/clients.html">Clients</a>
+          <a class="active" href="/pages/workers.html">Workers</a>
+          <a href="/pages/invoice.html">Invoice</a>
+          <a href="/pages/settings.html">Settings</a>
+          <button class="btn small" id="logoutBtn" type="button">Sign out</button>
+        </nav>
+      </div>
+    </header>
+    <main class="container">
+      <div class="grid cols-2" style="margin-top:14px">
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Add worker</div>
+              <div class="card-subtitle">Workers appear as chips in the trips form</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="workerForm">
+              <div class="grid" style="gap:10px">
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Name</div>
+                  <input id="workerName" type="text" class="input" placeholder="e.g. Sulvin" required />
+                </label>
+                <div class="row">
+                  <button type="submit" class="btn primary">Add worker</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Workers</div>
+              <div class="card-subtitle" id="workerCount">—</div>
+            </div>
+            <button class="btn small" id="refreshBtn" type="button">Refresh</button>
+          </div>
+          <div class="card-body">
+            <div class="list" id="workerList"></div>
+            <div class="footer-note" id="workersEmpty" style="display:none">No workers yet.</div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/js/ui.js"></script>
+    <script src="/js/auth-guard.js"></script>
+    <script src="/js/workers.js"></script>
+  </body>
+</html>

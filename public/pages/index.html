@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transport Billing — Dashboard</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="fx-bg" aria-hidden="true">
+      <div class="fx-blob b1"></div>
+      <div class="fx-blob b2"></div>
+      <div class="fx-blob b3"></div>
+      <div class="fx-noise"></div>
+      <div class="fx-vignette"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/pages/index.html" aria-label="Dashboard">
+          <span class="brand-badge" aria-hidden="true"></span>
+          <span>
+            Transport Billing
+            <small>Dashboard</small>
+          </span>
+        </a>
+        <nav class="nav" aria-label="Primary navigation">
+          <a class="active" href="/pages/index.html">Dashboard</a>
+          <a href="/pages/trips.html">Trips</a>
+          <a href="/pages/payments.html">Payments</a>
+          <a href="/pages/clients.html">Clients</a>
+          <a href="/pages/workers.html">Workers</a>
+          <a href="/pages/invoice.html">Invoice</a>
+          <a href="/pages/settings.html">Settings</a>
+          <button class="btn small" id="logoutBtn" type="button">Sign out</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="grid cols-3" style="margin-top: 14px">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Unpaid clients</div>
+              <div class="card-subtitle">People with outstanding balance</div>
+            </div>
+            <span class="pill bad" id="kpiUnpaidCount">—</span>
+          </div>
+          <div class="card-body">
+            <div class="kpi">
+              <div class="value" id="kpiUnpaidAmount">—</div>
+              <div class="label">owed</div>
+            </div>
+            <div class="footer-note">Balances update when you add trips or payments.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Total clients</div>
+              <div class="card-subtitle">All individual clients</div>
+            </div>
+            <span class="pill" id="kpiTotalCount">—</span>
+          </div>
+          <div class="card-body">
+            <div class="kpi">
+              <div class="value" id="kpiPaidCount">—</div>
+              <div class="label">paid</div>
+            </div>
+            <div class="footer-note">Clients marked as paid this period.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Quick actions</div>
+              <div class="card-subtitle">Common tasks</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <a class="btn primary" href="/pages/trips.html">Add Trip</a>
+              <a class="btn primary" href="/pages/payments.html">Add Payment</a>
+              <a class="btn" href="/pages/invoice.html">Generate Invoice</a>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid cols-2" style="margin-top: 12px">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Unpaid individuals</div>
+              <div class="card-subtitle">Tap WhatsApp to message</div>
+            </div>
+            <a class="btn small" href="/pages/clients.html">All</a>
+          </div>
+          <div class="card-body">
+            <div class="list" id="unpaidList"></div>
+            <div class="footer-note" id="unpaidEmpty" style="display: none">No unpaid balances.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Recent trips</div>
+              <div class="card-subtitle">Latest logged shifts</div>
+            </div>
+            <a class="btn small" href="/pages/trips.html">View</a>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Route</th>
+                    <th>People</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="recentTripsTbody"></tbody>
+              </table>
+            </div>
+            <div class="footer-note" id="tripsEmpty" style="display: none">No trips yet.</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid cols-2" style="margin-top: 12px">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Recent payments</div>
+              <div class="card-subtitle">Latest money received</div>
+            </div>
+            <a class="btn small" href="/pages/payments.html">View</a>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Method</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="recentPaymentsTbody"></tbody>
+              </table>
+            </div>
+            <div class="footer-note" id="paymentsEmpty" style="display: none">No payments yet.</div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">All clients</div>
+              <div class="card-subtitle">Balance overview</div>
+            </div>
+            <a class="btn small" href="/pages/clients.html">Manage</a>
+          </div>
+          <div class="card-body">
+            <div class="list" id="allClientsList"></div>
+            <div class="footer-note" id="allClientsEmpty" style="display: none">No clients yet.</div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/js/ui.js"></script>
+    <script src="/js/auth-guard.js"></script>
+    <script src="/js/dashboard.js"></script>
+  </body>
+</html>
