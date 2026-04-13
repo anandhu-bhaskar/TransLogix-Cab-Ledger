@@ -15,13 +15,15 @@ router.get("/", async (req, res) => {
 });
 
 router.put("/", async (req, res) => {
-  const { bankName, accountNumber, sortCode, whatsappBusinessNumber } = req.body || {};
+  const { bankName, accountNumber, sortCode, whatsappBusinessNumber, textbeeApiKey, textbeeDeviceId } = req.body || {};
   const s = await getSingleton();
 
   if (bankName !== undefined) s.bankName = String(bankName).trim();
   if (accountNumber !== undefined) s.accountNumber = String(accountNumber).trim();
   if (sortCode !== undefined) s.sortCode = String(sortCode).trim();
   if (whatsappBusinessNumber !== undefined) s.whatsappBusinessNumber = String(whatsappBusinessNumber).trim();
+  if (textbeeApiKey !== undefined) s.textbeeApiKey = String(textbeeApiKey).trim();
+  if (textbeeDeviceId !== undefined) s.textbeeDeviceId = String(textbeeDeviceId).trim();
 
   await s.save();
   res.json(s);

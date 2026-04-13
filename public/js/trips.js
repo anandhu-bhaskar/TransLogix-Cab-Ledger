@@ -52,8 +52,11 @@ function isOtherWorkers() {
   return !!document.querySelector("#workersBox .chip[data-id='other'].active");
 }
 
-function selectedPayerIds() {
-  return Array.from(document.querySelectorAll("#payersBox .chip.active")).map(el => el.dataset.id);
+function selectedPayers() {
+  return Array.from(document.querySelectorAll("#payersBox .chip.active")).map(el => ({
+    clientId: el.dataset.clientId || null,
+    name: el.dataset.name
+  }));
 }
 
 function autoFillPeopleCount() {
@@ -78,7 +81,7 @@ function updatePerPayer() {
   const paymentMethod = document.getElementById("paymentMethod").value;
   let count = 0;
   if (paymentMethod === "direct") {
-    count = selectedPayerIds().length;
+    count = selectedPayers().length;
   } else {
     count = getPeopleCount() || selectedWorkerIds().length;
   }
@@ -103,7 +106,7 @@ function renderWorkerChips() {
       if (unspecChip) unspecChip.classList.remove("active");
       el.classList.toggle("active");
       autoFillPeopleCount();
-      updatePerPayer();
+      rebuildPayerChips();
     });
     box.appendChild(el);
   });
@@ -119,7 +122,7 @@ function renderWorkerChips() {
     otherChip.classList.toggle("active");
     document.getElementById("otherNamesWrap").style.display = isOtherWorkers() ? "block" : "none";
     autoFillPeopleCount();
-    updatePerPayer();
+    rebuildPayerChips();
   });
   box.appendChild(otherChip);
 
@@ -133,24 +136,67 @@ function renderWorkerChips() {
     box.querySelectorAll(".chip.active").forEach(c => c.classList.remove("active"));
     document.getElementById("otherNamesWrap").style.display = "none";
     if (!wasActive) unspecChip.classList.add("active");
-    // clear auto-fill so user enters manually
     document.getElementById("numberOfPeople").value = "";
-    updatePerPayer();
+    rebuildPayerChips();
   });
   box.appendChild(unspecChip);
 }
 
-function renderPayerChips() {
+function rebuildPayerChips() {
   const box = document.getElementById("payersBox");
+  const note = document.getElementById("payersNote");
   box.innerHTML = "";
-  STATE.individualClients.forEach(c => {
+
+  // Collect all currently selected people on the trip
+  const selectedWorkers = Array.from(document.querySelectorAll("#workersBox .chip.active"))
+    .filter(c => c.dataset.id !== "unspecified");
+
+  // Names from "Other" input
+  const otherNames = isOtherWorkers()
+    ? (document.getElementById("otherNames").value || "").split(",").map(s => s.trim()).filter(Boolean)
+    : [];
+
+  const allNames = [];
+
+  // Named workers — try to match to an individual client for balance tracking
+  selectedWorkers.forEach(chip => {
+    if (chip.dataset.id === "other") return;
+    const worker = STATE.workers.find(w => w._id === chip.dataset.id);
+    if (!worker) return;
+    const matchedClient = STATE.individualClients.find(
+      c => c.name.toLowerCase() === worker.name.toLowerCase()
+    );
+    allNames.push({ name: worker.name, clientId: matchedClient?._id || null });
+  });
+
+  // Custom "Other" names
+  otherNames.forEach(name => {
+    const matchedClient = STATE.individualClients.find(
+      c => c.name.toLowerCase() === name.toLowerCase()
+    );
+    allNames.push({ name, clientId: matchedClient?._id || null });
+  });
+
+  if (!allNames.length) {
+    note.textContent = "Select people on trip first.";
+    updatePerPayer();
+    return;
+  }
+
+  note.textContent = "Deselect anyone not paying. Amount splits equally among selected.";
+
+  allNames.forEach(({ name, clientId }) => {
     const el = document.createElement("div");
-    el.className = "chip";
-    el.dataset.id = c._id;
-    el.textContent = `${c.name}${c.amountOwed > 0 ? ` (${money(c.amountOwed)})` : ""}`;
+    el.className = "chip active"; // all pre-selected
+    el.dataset.clientId = clientId || "";
+    el.dataset.name = name;
+    el.textContent = name + (clientId ? "" : " ⚠");
+    if (!clientId) el.title = "No client record — won't track balance";
     el.addEventListener("click", () => { el.classList.toggle("active"); updatePerPayer(); });
     box.appendChild(el);
   });
+
+  updatePerPayer();
 }
 
 function renderRoutes() {
@@ -173,7 +219,9 @@ function renderVariants() {
   const route = STATE.routes.find(r => r._id === routeId);
   const sel = document.getElementById("variant");
   sel.innerHTML = `<option value="">—</option>`;
-  const vars = route && Array.isArray(route.variants) ? route.variants : [];
+  const routeVars = route && Array.isArray(route.variants) && route.variants.length ? route.variants : [];
+  const defaults = ["Morning", "Afternoon", "Evening"];
+  const vars = routeVars.length ? routeVars : defaults;
   vars.forEach(v => {
     const opt = document.createElement("option");
     opt.value = v;
@@ -231,10 +279,10 @@ async function loadFormData() {
   renderRoutes();
   renderVariants();
   renderWorkerChips();
-  renderPayerChips();
   renderPartners();
   syncRouteUI();
   syncPaymentUI();
+  rebuildPayerChips();
 }
 
 async function loadTrips() {
@@ -288,14 +336,20 @@ async function loadTrips() {
       || (Array.isArray(t.workers) ? t.workers.length : 0)
       + (Array.isArray(t.customWorkerNames) ? t.customWorkerNames.length : 0);
 
+    const parking = Number(t.parkingCharges) || 0;
+    const extras = Number(t.otherExpenses) || 0;
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${fmtDate(t.date)}</td>
       <td>${escapeHtml(routeLabel)}</td>
+      <td>${escapeHtml(t.variant || "—")}</td>
       <td>${workerNames}</td>
       <td>${peopleCount || "—"}</td>
       <td>${paymentLabel}</td>
       <td>${money(t.totalAmount)}</td>
+      <td>${parking ? money(parking) : "—"}</td>
+      <td>${extras ? money(extras) : "—"}</td>
       <td style="text-align:right">
         <button class="btn small" data-del="${t._id}" type="button">Delete</button>
       </td>
@@ -333,19 +387,31 @@ async function onSubmit(e) {
     ? document.getElementById("otherNames").value.split(",").map(s => s.trim()).filter(Boolean)
     : [];
   const totalAmount = Number(document.getElementById("totalAmount").value);
+  const parkingCharges = Number(document.getElementById("parkingCharges").value) || 0;
+  const otherExpenses = Number(document.getElementById("otherExpenses").value) || 0;
   const notes = document.getElementById("notes").value;
   const paymentMethod = document.getElementById("paymentMethod").value;
-  const payerClientIds = selectedPayerIds();
+  const payers = selectedPayers();
   const partnerClientId = document.getElementById("partnerClientId").value;
 
   if (!routeId) return toast("Please select a route.");
   if (routeId === "other" && !customRouteName) return toast("Please enter a custom route name.");
   if (!Number.isFinite(totalAmount) || totalAmount <= 0) return toast("Please enter a valid total amount.");
 
-  if (paymentMethod === "direct" && !payerClientIds.length)
-    return toast("Please select at least one paying client.");
+  if (paymentMethod === "direct" && !payers.length)
+    return toast("Select people on trip first — they will appear as payers.");
   if (paymentMethod === "partner" && !partnerClientId)
     return toast("Please select a partner.");
+
+  // Only send client IDs that are tracked; warn if some have no record
+  const payerClientIds = payers.map(p => p.clientId).filter(Boolean);
+  const untracked = payers.filter(p => !p.clientId).map(p => p.name);
+  if (paymentMethod === "direct" && untracked.length) {
+    const ok = confirm(
+      `${untracked.join(", ")} have no client record and won't be tracked. Continue anyway?`
+    );
+    if (!ok) return;
+  }
 
   const payload = {
     date,
@@ -357,6 +423,8 @@ async function onSubmit(e) {
     unspecifiedWorkers,
     numberOfPeople,
     totalAmount,
+    parkingCharges,
+    otherExpenses,
     notes,
     paymentMethod,
     payerClientIds: paymentMethod === "direct" ? payerClientIds : [],
@@ -366,12 +434,13 @@ async function onSubmit(e) {
   const btn = e.target.querySelector(".btn.primary");
   btn.disabled = true;
   try {
-    await apiJson("/api/trips", {
+    const saved = await apiJson("/api/trips", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
     toast("Trip saved.");
+    showWhatsAppPanel(saved);
     resetForm();
     await Promise.all([loadTrips(), loadFormData()]);
   } catch (err) {
@@ -379,6 +448,70 @@ async function onSubmit(e) {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ── WhatsApp notify panel ─────────────────────────────────
+
+function buildWaMessage(client, trip) {
+  const routeLabel = trip.customRouteName || (trip.route ? trip.route.name : "—");
+  const dateLabel = new Date(trip.date).toISOString().slice(0, 10);
+  const amountEach = trip.amountPerPerson
+    || (trip.payers?.length ? Number((trip.totalAmount / trip.payers.length).toFixed(2)) : trip.totalAmount);
+  return (
+    `Hi ${client.name}, a trip has been recorded for you.\n` +
+    `Date: ${dateLabel}\nRoute: ${routeLabel}\n` +
+    `Amount due: £${Number(amountEach).toFixed(2)}\n` +
+    `Please arrange payment. Thank you.`
+  );
+}
+
+function showWhatsAppPanel(trip) {
+  const panel = document.getElementById("waPanel");
+  const body = document.getElementById("waPanelBody");
+  body.innerHTML = "";
+
+  // Collect payers with phone numbers
+  const targets = trip.paymentMethod === "direct" && Array.isArray(trip.payers)
+    ? trip.payers.map(p => p.client).filter(c => c?.whatsappNumber)
+    : [];
+
+  if (!targets.length) {
+    panel.style.display = "none";
+    return;
+  }
+
+  targets.forEach(client => {
+    const num = client.whatsappNumber.replace(/[^\d]/g, "");
+    if (!num) return;
+    const msg = buildWaMessage(client, trip);
+    const url = `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
+
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.cssText = "justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)";
+    row.innerHTML = `
+      <div>
+        <div style="font-weight:700;font-size:14px">${escapeHtml(client.name)}</div>
+        <div class="footer-note">${escapeHtml(client.whatsappNumber)}</div>
+      </div>
+      <a href="${url}" target="_blank" rel="noreferrer" class="btn wa small">
+        Send via WhatsApp
+      </a>
+    `;
+    body.appendChild(row);
+  });
+
+  // Add dismiss
+  const dismiss = document.createElement("div");
+  dismiss.style.cssText = "text-align:right;margin-top:10px";
+  dismiss.innerHTML = `<button class="btn small" id="waDismiss" type="button">Dismiss</button>`;
+  body.appendChild(dismiss);
+  document.getElementById("waDismiss").addEventListener("click", () => {
+    panel.style.display = "none";
+  });
+
+  panel.style.display = "block";
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
 function resetForm() {
@@ -391,7 +524,7 @@ function resetForm() {
   renderVariants();
   syncRouteUI();
   setPaymentMethod("direct");
-  updatePerPayer();
+  rebuildPayerChips();
 }
 
 // ── Init ──────────────────────────────────────────────────
@@ -411,7 +544,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("totalAmount").addEventListener("input", updatePerPayer);
   document.getElementById("numberOfPeople").addEventListener("input", updatePerPayer);
-  document.getElementById("otherNames").addEventListener("input", () => { autoFillPeopleCount(); updatePerPayer(); });
+  document.getElementById("otherNames").addEventListener("input", () => { autoFillPeopleCount(); rebuildPayerChips(); });
   document.getElementById("tripForm").addEventListener("submit", onSubmit);
   document.getElementById("resetBtn").addEventListener("click", resetForm);
   document.getElementById("refreshBtn").addEventListener("click", () =>

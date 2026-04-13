@@ -14,15 +14,11 @@
       <div class="fx-noise"></div>
       <div class="fx-vignette"></div>
     </div>
-
     <header class="topbar">
       <div class="topbar-inner">
         <a class="brand" href="/pages/index.html" aria-label="Dashboard">
           <span class="brand-badge" aria-hidden="true"></span>
-          <span>
-            Transport Billing
-            <small>Clients</small>
-          </span>
+          <span>Transport Billing<small>Clients</small></span>
         </a>
         <nav class="nav" aria-label="Primary navigation">
           <a href="/pages/index.html">Dashboard</a>
@@ -38,27 +34,76 @@
     </header>
 
     <main class="container">
-      <div class="grid cols-2" style="margin-top: 14px">
+      <div class="grid cols-2" style="margin-top:14px">
 
         <!-- Add client -->
         <section class="card">
           <div class="card-header">
             <div>
               <div class="card-title">Add client</div>
-              <div class="card-subtitle">Individual clients only</div>
+              <div class="card-subtitle">Individual clients</div>
             </div>
           </div>
           <div class="card-body">
             <form id="addClientForm">
-              <div class="grid" style="gap: 10px">
+              <div class="grid" style="gap:10px">
+
                 <label>
                   <div class="muted" style="font-weight:800;margin-bottom:6px">Full name</div>
                   <input id="clientName" type="text" class="input" placeholder="e.g. Reshma" required />
                 </label>
+
                 <label>
                   <div class="muted" style="font-weight:800;margin-bottom:6px">WhatsApp number <span style="font-weight:500">(optional)</span></div>
                   <input id="clientWhatsapp" type="tel" class="input" placeholder="e.g. 447911123456" />
                 </label>
+
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Postcode <span style="font-weight:500">(optional)</span></div>
+                  <input id="clientPostcode" type="text" class="input" placeholder="e.g. CV1 2AB" style="text-transform:uppercase" />
+                </label>
+
+                <!-- Client type -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:8px">Client type</div>
+                  <div class="row" style="gap:8px">
+                    <button type="button" class="btn client-type-btn active-filter" data-type="direct">Direct</button>
+                    <button type="button" class="btn client-type-btn" data-type="partner">Partner</button>
+                  </div>
+                  <input type="hidden" id="clientType" value="direct" />
+                  <div class="footer-note" style="margin-top:6px">Direct = pays personally. Partner = organisation covers cost.</div>
+                </div>
+
+                <!-- Organisation -->
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Works at <span style="font-weight:500">(optional)</span></div>
+                  <select id="clientOrganisation" class="input">
+                    <option value="">— None —</option>
+                    <option value="Ocado">Ocado</option>
+                    <option value="Amazon">Amazon</option>
+                    <option value="FedEx">FedEx</option>
+                    <option value="Carehome">Carehome</option>
+                    <option value="Other">Other…</option>
+                  </select>
+                </label>
+
+                <!-- Custom organisation name (shown when Other selected) -->
+                <label id="customOrgWrap" style="display:none">
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Organisation name</div>
+                  <input id="customOrgName" type="text" class="input" placeholder="e.g. NHS, Tesco…" />
+                </label>
+
+                <!-- Carehome location (shown only when Carehome selected) -->
+                <label id="carehomeLocationWrap" style="display:none">
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Carehome location</div>
+                  <select id="carehomeLocation" class="input">
+                    <option value="">Select location…</option>
+                    <option value="Oxford">Oxford</option>
+                    <option value="Coventry">Coventry</option>
+                    <option value="Stratford">Stratford</option>
+                  </select>
+                </label>
+
                 <div class="row">
                   <button type="submit" class="btn primary">Add client</button>
                 </div>
@@ -78,24 +123,20 @@
           <div class="card-body">
             <div class="grid cols-2" style="gap:12px">
               <div>
-                <div class="kpi">
-                  <div class="value" id="kpiTotal">—</div>
-                  <div class="label">total</div>
-                </div>
-                <div class="footer-note">Clients</div>
+                <div class="kpi"><div class="value" id="kpiTotal">—</div><div class="label">total</div></div>
+                <div class="footer-note">All clients</div>
               </div>
               <div>
-                <div class="kpi">
-                  <div class="value" id="kpiUnpaid">—</div>
-                  <div class="label">unpaid</div>
-                </div>
+                <div class="kpi"><div class="value" id="kpiUnpaid">—</div><div class="label">unpaid</div></div>
                 <div class="footer-note">Pending balance</div>
               </div>
               <div>
-                <div class="kpi">
-                  <div class="value" id="kpiOwed">—</div>
-                </div>
+                <div class="kpi"><div class="value" id="kpiOwed">—</div></div>
                 <div class="footer-note">Total owed</div>
+              </div>
+              <div>
+                <div class="kpi"><div class="value" id="kpiPartners">—</div><div class="label">partners</div></div>
+                <div class="footer-note">Partner type clients</div>
               </div>
             </div>
           </div>
@@ -107,6 +148,8 @@
         <button class="btn small active-filter" id="filterAll" type="button">All</button>
         <button class="btn small" id="filterUnpaid" type="button">Unpaid</button>
         <button class="btn small" id="filterPaid" type="button">Paid</button>
+        <button class="btn small" id="filterDirect" type="button">Direct</button>
+        <button class="btn small" id="filterPartner" type="button">Partner</button>
       </div>
 
       <!-- Clients list -->
@@ -124,8 +167,11 @@
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Type</th>
+                  <th>Organisation</th>
+                  <th>Postcode</th>
                   <th>WhatsApp</th>
-                  <th>Amount owed</th>
+                  <th>Owed</th>
                   <th>Status</th>
                   <th></th>
                 </tr>

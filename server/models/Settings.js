@@ -5,7 +5,9 @@ const SettingsSchema = new mongoose.Schema(
     bankName: { type: String, trim: true },
     accountNumber: { type: String, trim: true },
     sortCode: { type: String, trim: true },
-    whatsappBusinessNumber: { type: String, trim: true }
+    whatsappBusinessNumber: { type: String, trim: true },
+    textbeeApiKey: { type: String, trim: true },
+    textbeeDeviceId: { type: String, trim: true }
   },
   { timestamps: true }
 );

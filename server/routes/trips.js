@@ -41,9 +41,11 @@ router.post("/", async (req, res) => {
     customRouteName,
     variant,
     workerIds,
-    customWorkerNames,  // free-text names
-    unspecifiedWorkers, // boolean
-    numberOfPeople,     // manual count (used when unspecified or as override)
+    customWorkerNames,
+    unspecifiedWorkers,
+    numberOfPeople,
+    parkingCharges,
+    otherExpenses,
     totalAmount,
     notes,
     paymentMethod,
@@ -88,6 +90,8 @@ router.post("/", async (req, res) => {
       : [],
     unspecifiedWorkers: !!unspecifiedWorkers,
     numberOfPeople: Number(numberOfPeople) || undefined,
+    parkingCharges: Number(parkingCharges) || 0,
+    otherExpenses: Number(otherExpenses) || 0,
     totalAmount: total,
     notes: notes ? String(notes).trim() : "",
     paymentMethod

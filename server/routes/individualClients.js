@@ -12,13 +12,17 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", async (req, res) => {
-  const { name, whatsappNumber } = req.body || {};
+  const { name, whatsappNumber, postcode, clientType, organisation, carehomeLocation } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: "name is required" });
 
   try {
     const created = await IndividualClient.create({
       name: String(name).trim(),
-      whatsappNumber: whatsappNumber ? String(whatsappNumber).trim() : ""
+      whatsappNumber: whatsappNumber ? String(whatsappNumber).trim() : "",
+      postcode: postcode ? String(postcode).trim().toUpperCase() : "",
+      clientType: clientType || "direct",
+      organisation: organisation || "",
+      carehomeLocation: organisation === "Carehome" ? (carehomeLocation || "") : ""
     });
     res.status(201).json(created);
   } catch (e) {

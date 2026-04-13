@@ -13,18 +13,20 @@ const PaymentProofSchema = new mongoose.Schema(
 
 const PaymentSchema = new mongoose.Schema(
   {
+    // The client whose balance is being settled
     payerName: { type: String, required: true, trim: true },
     amount: { type: Number, required: true },
     date: { type: Date, required: true },
-    method: {
-      type: String,
-      enum: ["Revolut", "Bank Transfer", "Cash"],
-      required: true
-    },
+    method: { type: String, enum: ["Bank Transfer", "Cash", "Revolut"], required: true },
 
-    linkedType: { type: String, enum: ["business", "individual"], required: true },
+    // direct = individual client, partner = business client
+    linkedType: { type: String, enum: ["direct", "partner", "business", "individual"], required: true },
     businessClient: { type: mongoose.Schema.Types.ObjectId, ref: "BusinessClient" },
     individualClient: { type: mongoose.Schema.Types.ObjectId, ref: "IndividualClient" },
+
+    // Third-party payment: someone else paid on behalf of the client
+    thirdPartyPayer: { type: Boolean, default: false },
+    paidByName: { type: String, trim: true }, // actual person who transferred the money
 
     proof: PaymentProofSchema
   },
@@ -34,4 +36,3 @@ const PaymentSchema = new mongoose.Schema(
 PaymentSchema.index({ date: -1 });
 
 module.exports = mongoose.model("Payment", PaymentSchema);
-

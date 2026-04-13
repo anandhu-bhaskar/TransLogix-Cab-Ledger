@@ -31,6 +31,8 @@ const TripSchema = new mongoose.Schema(
     unspecifiedWorkers: { type: Boolean, default: false },
 
     numberOfPeople: { type: Number },
+    parkingCharges: { type: Number, default: 0 },
+    otherExpenses: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     amountPerPerson: { type: Number },
 

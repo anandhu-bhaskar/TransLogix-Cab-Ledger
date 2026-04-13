@@ -33,7 +33,7 @@
       </div>
     </header>
     <main class="container">
-      <div style="max-width:520px;margin-top:14px">
+      <div style="max-width:520px;margin-top:14px;display:grid;gap:14px">
         <section class="card">
           <div class="card-header">
             <div>
@@ -67,6 +67,64 @@
             </form>
           </div>
         </section>
+        <!-- Per-user TextBee SMS integration -->
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">SMS Integration</div>
+              <div class="card-subtitle">Your personal TextBee account</div>
+            </div>
+            <!-- Status badge -->
+            <div id="smsStatusBadge" style="display:none"></div>
+          </div>
+          <div class="card-body">
+            <form id="textbeeForm">
+              <div class="grid" style="gap:12px">
+
+                <div class="footer-note" style="line-height:1.7">
+                  Install the <strong>TextBee</strong> Android app on your phone, sign up at
+                  <strong>textbee.dev</strong>, then paste your credentials below.
+                  Messages are sent from your own SIM card.
+                </div>
+
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">API key</div>
+                  <input id="textbeeApiKey" type="password" class="input"
+                    placeholder="Paste API key (hidden after saving)…" autocomplete="new-password" />
+                  <div class="footer-note" id="apiKeyStatus" style="margin-top:4px"></div>
+                </label>
+
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Device ID</div>
+                  <input id="textbeeDeviceId" type="text" class="input"
+                    placeholder="Paste Device ID from TextBee dashboard…" autocomplete="off" />
+                </label>
+
+                <!-- Enable toggle — only shown when credentials are saved -->
+                <div id="smsEnableWrap" style="display:none">
+                  <label class="row" style="gap:10px;cursor:pointer;align-items:center">
+                    <input type="checkbox" id="smsEnabled"
+                      style="width:18px;height:18px;accent-color:#9b1c1c" />
+                    <div>
+                      <div style="font-weight:700;font-size:14px">Enable SMS notifications</div>
+                      <div class="footer-note">Allow "Send SMS" checkbox when adding trips</div>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="row" style="gap:8px">
+                  <button type="submit" class="btn primary">Save credentials</button>
+                  <button type="button" class="btn" id="testSmsBtn" style="display:none">Send test SMS</button>
+                  <button type="button" class="btn" id="clearSmsBtn" style="display:none;color:#9b1c1c">Remove</button>
+                </div>
+
+                <div id="smsFormNote" class="footer-note" style="display:none"></div>
+
+              </div>
+            </form>
+          </div>
+        </section>
+
       </div>
     </main>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

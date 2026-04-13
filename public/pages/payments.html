@@ -32,6 +32,7 @@
         </nav>
       </div>
     </header>
+
     <main class="container">
       <div class="grid cols-2" style="margin-top:14px">
 
@@ -44,34 +45,92 @@
             </div>
           </div>
           <div class="card-body">
-            <form id="paymentForm">
-              <div class="grid" style="gap:10px">
-                <label>
-                  <div class="muted" style="font-weight:800;margin-bottom:6px">Client</div>
-                  <select id="clientId" class="input" required>
-                    <option value="">Select client…</option>
-                  </select>
+            <form id="paymentForm" enctype="multipart/form-data">
+              <div class="grid" style="gap:12px">
+
+                <!-- Client type toggle -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:8px">Client type</div>
+                  <div class="row" style="gap:8px">
+                    <button type="button" class="btn pay-type-btn active-type" data-type="direct">Direct</button>
+                    <button type="button" class="btn pay-type-btn" data-type="partner">Partner</button>
+                  </div>
+                  <input type="hidden" id="linkedType" value="direct" />
+                </div>
+
+                <!-- Direct: pick individual client -->
+                <div id="directClientWrap">
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Client</div>
+                    <select id="individualClientId" class="input">
+                      <option value="">Select client…</option>
+                    </select>
+                  </label>
+                </div>
+
+                <!-- Partner: pick partner client (individual client with clientType=partner) -->
+                <div id="partnerClientWrap" style="display:none">
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Partner client</div>
+                    <select id="partnerClientId" class="input">
+                      <option value="">Select partner…</option>
+                    </select>
+                  </label>
+                </div>
+
+                <!-- Amount + Date -->
+                <div class="grid cols-2">
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Amount (£)</div>
+                    <input id="amount" type="number" step="0.01" min="0.01" class="input" required />
+                  </label>
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Date</div>
+                    <input id="payDate" type="date" class="input" required />
+                  </label>
+                </div>
+
+                <!-- Method -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:8px">Payment method</div>
+                  <div class="row" style="gap:8px">
+                    <button type="button" class="btn pay-method-btn active-method" data-method="Bank Transfer">Bank Transfer</button>
+                    <button type="button" class="btn pay-method-btn" data-method="Cash">Cash</button>
+                    <button type="button" class="btn pay-method-btn" data-method="Revolut">Revolut</button>
+                  </div>
+                  <input type="hidden" id="method" value="Bank Transfer" />
+                </div>
+
+                <!-- Proof upload -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Upload proof <span style="font-weight:500">(optional)</span></div>
+                  <label class="btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+                    <span id="proofLabel">Choose file…</span>
+                    <input id="proofFile" type="file" accept="image/*,application/pdf" style="display:none" />
+                  </label>
+                  <div class="footer-note" id="proofNote" style="margin-top:4px"></div>
+                </div>
+
+                <!-- Third-party payer -->
+                <div>
+                  <label class="row" style="gap:8px;cursor:pointer">
+                    <input type="checkbox" id="thirdPartyCheck" style="width:16px;height:16px;accent-color:#9b1c1c" />
+                    <span class="muted" style="font-weight:700">Someone else paid on behalf</span>
+                  </label>
+                  <div class="footer-note" style="margin-top:2px">E.g. a friend or relative transferred the money</div>
+                </div>
+
+                <!-- Paid-by name (shown when third-party checked) -->
+                <label id="paidByWrap" style="display:none">
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">Paid by (name)</div>
+                  <input id="paidByName" type="text" class="input" placeholder="e.g. John Smith" />
                 </label>
-                <label>
-                  <div class="muted" style="font-weight:800;margin-bottom:6px">Amount (£)</div>
-                  <input id="amount" type="number" step="0.01" min="0" class="input" required />
-                </label>
-                <label>
-                  <div class="muted" style="font-weight:800;margin-bottom:6px">Date</div>
-                  <input id="payDate" type="date" class="input" required />
-                </label>
-                <label>
-                  <div class="muted" style="font-weight:800;margin-bottom:6px">Method</div>
-                  <select id="method" class="input" required>
-                    <option value="Revolut">Revolut</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Cash">Cash</option>
-                  </select>
-                </label>
+
                 <div class="row">
                   <button type="submit" class="btn primary">Save payment</button>
                   <button type="button" class="btn" id="resetBtn">Reset</button>
                 </div>
+
               </div>
             </form>
           </div>
@@ -92,9 +151,11 @@
                 <thead>
                   <tr>
                     <th>Client</th>
+                    <th>Type</th>
                     <th>Date</th>
                     <th>Method</th>
                     <th>Amount</th>
+                    <th>Proof</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -107,6 +168,7 @@
 
       </div>
     </main>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/js/ui.js"></script>
     <script src="/js/auth-guard.js"></script>

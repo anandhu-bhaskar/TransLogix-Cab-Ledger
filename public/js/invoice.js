@@ -9,16 +9,27 @@ async function api(path, opts) {
   return res.json();
 }
 
-async function loadClients() {
-  const clients = await api("/api/individual-clients");
+let allInvoiceClients = [];
+
+function populateClientDropdown() {
+  const type = document.getElementById("invoiceClientType").value;
   const sel = document.getElementById("clientId");
+  const current = sel.value;
   sel.innerHTML = `<option value="">Select client…</option>`;
-  clients.forEach(c => {
+  const filtered = type === "all" ? allInvoiceClients : allInvoiceClients.filter(c => (c.clientType || "direct") === type);
+  filtered.forEach(c => {
     const opt = document.createElement("option");
     opt.value = c._id;
     opt.textContent = c.name;
     sel.appendChild(opt);
   });
+  // Restore selection if still in filtered list
+  if (current && filtered.find(c => c._id === current)) sel.value = current;
+}
+
+async function loadClients() {
+  allInvoiceClients = await api("/api/individual-clients");
+  populateClientDropdown();
 }
 
 document.getElementById("invoiceForm").addEventListener("submit", async e => {
@@ -55,6 +66,20 @@ document.getElementById("invoiceForm").addEventListener("submit", async e => {
   } catch(err) { toast(`Error: ${err.message}`); }
   finally { btn.disabled = false; btn.textContent = "Download invoice"; }
 });
+
+// Client type toggle
+document.querySelectorAll(".inv-type-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".inv-type-btn").forEach(b => b.classList.remove("active-type"));
+    btn.classList.add("active-type");
+    document.getElementById("invoiceClientType").value = btn.dataset.type;
+    populateClientDropdown();
+  });
+});
+
+const style = document.createElement("style");
+style.textContent = `.active-type { background: rgba(155,28,28,.10); border-color: rgba(155,28,28,.28); color: #7f1d1d; }`;
+document.head.appendChild(style);
 
 document.addEventListener("DOMContentLoaded", () => {
   // default to current month range

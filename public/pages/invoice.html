@@ -44,6 +44,19 @@
           <div class="card-body">
             <form id="invoiceForm">
               <div class="grid" style="gap:10px">
+
+                <!-- Step 1: client type -->
+                <div>
+                  <div class="muted" style="font-weight:800;margin-bottom:8px">Client type</div>
+                  <div class="row" style="gap:8px">
+                    <button type="button" class="btn inv-type-btn active-type" data-type="all">All</button>
+                    <button type="button" class="btn inv-type-btn" data-type="direct">Direct</button>
+                    <button type="button" class="btn inv-type-btn" data-type="partner">Partner</button>
+                  </div>
+                  <input type="hidden" id="invoiceClientType" value="all" />
+                </div>
+
+                <!-- Step 2: client name (filtered by type) -->
                 <label>
                   <div class="muted" style="font-weight:800;margin-bottom:6px">Client</div>
                   <select id="clientId" class="input" required>

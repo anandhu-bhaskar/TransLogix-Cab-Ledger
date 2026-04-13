@@ -67,11 +67,14 @@
                   <input id="customRouteName" type="text" class="input" placeholder="e.g. Heathrow Terminal 5" />
                 </label>
 
-                <!-- Variant (hidden for custom routes) -->
+                <!-- Variant -->
                 <label id="variantWrap">
                   <div class="muted" style="font-weight:800;margin-bottom:6px">Variant</div>
                   <select id="variant" class="input">
                     <option value="">—</option>
+                    <option value="Morning">Morning</option>
+                    <option value="Afternoon">Afternoon</option>
+                    <option value="Evening">Evening</option>
                   </select>
                 </label>
 
@@ -97,11 +100,18 @@
                     <input id="numberOfPeople" type="number" min="1" step="1" class="input" placeholder="Auto" />
                   </label>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div class="muted" style="font-weight:700;font-size:13px">Per person:</div>
-                  <div class="pill" id="amountPerPayer">£0.00</div>
-                </div>
 
+                <!-- Parking + other expenses -->
+                <div class="grid cols-2">
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Parking charges (£)</div>
+                    <input id="parkingCharges" type="number" step="0.01" min="0" class="input" placeholder="0.00" />
+                  </label>
+                  <label>
+                    <div class="muted" style="font-weight:800;margin-bottom:6px">Other expenses (£)</div>
+                    <input id="otherExpenses" type="number" step="0.01" min="0" class="input" placeholder="0.00" />
+                  </label>
+                </div>
                 <!-- Payment method -->
                 <div>
                   <div class="muted" style="font-weight:800;margin-bottom:8px">Payment method</div>
@@ -112,11 +122,15 @@
                   <input type="hidden" id="paymentMethod" value="direct" />
                 </div>
 
-                <!-- Direct: choose payers -->
+                <!-- Direct: choose payers (populated from people on trip) -->
                 <div id="directWrap">
                   <div class="muted" style="font-weight:800;margin-bottom:6px">Who is paying?</div>
                   <div id="payersBox" class="workers-box"></div>
-                  <div class="footer-note">Select clients paying for this trip. Amount splits equally among selected.</div>
+                  <div class="footer-note" id="payersNote">Select people on trip first.</div>
+                  <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+                    <div class="muted" style="font-weight:700;font-size:13px">Rate per person:</div>
+                    <div class="pill" id="amountPerPayer">£0.00</div>
+                  </div>
                 </div>
 
                 <!-- Partner: choose partner -->
@@ -145,6 +159,19 @@
           </div>
         </section>
 
+        <!-- WhatsApp notify panel (appears after trip is saved) -->
+        <div id="waPanel" style="display:none">
+          <section class="card" style="border-color:rgba(37,211,102,.35);background:#f0fdf4">
+            <div class="card-header">
+              <div>
+                <div class="card-title" style="color:#166534">Notify clients via WhatsApp</div>
+                <div class="card-subtitle">Trip saved — tap a button to open WhatsApp with the message pre-filled</div>
+              </div>
+            </div>
+            <div class="card-body" id="waPanelBody"></div>
+          </section>
+        </div>
+
         <!-- Trips ledger -->
         <section class="card">
           <div class="card-header">
@@ -161,10 +188,13 @@
                   <tr>
                     <th>Date</th>
                     <th>Route</th>
+                    <th>Variant</th>
                     <th>People</th>
                     <th>No.</th>
                     <th>Payment</th>
                     <th>Amount</th>
+                    <th>Parking</th>
+                    <th>Extras</th>
                     <th></th>
                   </tr>
                 </thead>

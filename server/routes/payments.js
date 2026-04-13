@@ -22,7 +22,6 @@ const storage = new CloudinaryStorage({
 });
 
 const upload = multer({ storage });
-
 const router = express.Router();
 
 router.get("/", async (req, res) => {
@@ -34,26 +33,35 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", upload.single("proof"), async (req, res) => {
-  const { payerName, amount, date, method, linkedType, businessClientId, individualClientId } = req.body || {};
+  const {
+    payerName, amount, date, method,
+    linkedType,
+    businessClientId, individualClientId,
+    thirdPartyPayer, paidByName
+  } = req.body || {};
 
-  if (!payerName || !String(payerName).trim()) return res.status(400).json({ error: "payerName is required" });
+  if (!payerName?.trim()) return res.status(400).json({ error: "payerName is required" });
   const amt = Number(amount);
-  if (!Number.isFinite(amt)) return res.status(400).json({ error: "amount must be a number" });
+  if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "Valid amount required" });
   const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return res.status(400).json({ error: "valid date is required" });
-  if (!["Revolut", "Bank Transfer", "Cash"].includes(method)) {
-    return res.status(400).json({ error: "method must be Revolut, Bank Transfer, or Cash" });
-  }
-  if (!["business", "individual"].includes(linkedType)) {
-    return res.status(400).json({ error: "linkedType must be business or individual" });
-  }
+  if (isNaN(d.getTime())) return res.status(400).json({ error: "Valid date required" });
+  if (!["Bank Transfer", "Cash", "Revolut"].includes(method))
+    return res.status(400).json({ error: "Method must be Bank Transfer, Cash or Revolut" });
+
+  // Normalise: accept both old and new linkedType values
+  const isPartner = linkedType === "partner" || linkedType === "business";
+  const isDirect = linkedType === "direct" || linkedType === "individual";
+  if (!isPartner && !isDirect)
+    return res.status(400).json({ error: "linkedType must be direct or partner" });
 
   const payload = {
-    payerName: String(payerName).trim(),
+    payerName: payerName.trim(),
     amount: amt,
     date: d,
     method,
-    linkedType
+    linkedType: isPartner ? "partner" : "direct",
+    thirdPartyPayer: thirdPartyPayer === "true" || thirdPartyPayer === true,
+    paidByName: paidByName ? String(paidByName).trim() : ""
   };
 
   if (req.file) {
@@ -66,25 +74,37 @@ router.post("/", upload.single("proof"), async (req, res) => {
     };
   }
 
-  if (linkedType === "business") {
-    if (!businessClientId) return res.status(400).json({ error: "businessClientId is required" });
-    const bc = await BusinessClient.findById(businessClientId);
-    if (!bc) return res.status(400).json({ error: "invalid businessClientId" });
-    payload.businessClient = bc._id;
+  if (isPartner) {
+    // Partner payments: prefer individualClientId (new UI), fall back to businessClientId (old UI)
+    const partnerLookupId = individualClientId || businessClientId;
+    if (partnerLookupId) {
+      // Try IndividualClient first (new flow)
+      const ic = await IndividualClient.findById(partnerLookupId).catch(() => null);
+      if (ic) {
+        payload.individualClient = ic._id;
+      } else {
+        // Fall back to BusinessClient (legacy flow)
+        const bc = await BusinessClient.findById(partnerLookupId).catch(() => null);
+        if (!bc) return res.status(400).json({ error: "Invalid partner client" });
+        payload.businessClient = bc._id;
+      }
+    }
   } else {
-    if (!individualClientId) return res.status(400).json({ error: "individualClientId is required" });
+    if (!individualClientId) return res.status(400).json({ error: "individualClientId required for direct payment" });
     const ic = await IndividualClient.findById(individualClientId);
-    if (!ic) return res.status(400).json({ error: "invalid individualClientId" });
+    if (!ic) return res.status(400).json({ error: "Invalid individualClientId" });
     payload.individualClient = ic._id;
   }
 
   const created = await Payment.create(payload);
 
   // Side effects
-  if (created.linkedType === "business" && created.businessClient) {
+  if (isPartner && created.businessClient) {
+    // Legacy: BusinessClient balance
     await BusinessClient.findByIdAndUpdate(created.businessClient, { $inc: { runningBalance: -created.amount } });
   }
-  if (created.linkedType === "individual" && created.individualClient) {
+  if (created.individualClient) {
+    // Both direct and partner (new flow) update IndividualClient.amountOwed
     const updated = await IndividualClient.findByIdAndUpdate(
       created.individualClient,
       { $inc: { amountOwed: -created.amount } },
@@ -105,16 +125,15 @@ router.delete("/:id", async (req, res) => {
 
   await Payment.deleteOne({ _id: payment._id });
 
-  // Reverse side effects
-  if (payment.linkedType === "business" && payment.businessClient) {
+  const isPartner = payment.linkedType === "partner" || payment.linkedType === "business";
+  const isDirect = payment.linkedType === "direct" || payment.linkedType === "individual";
+
+  if (isPartner && payment.businessClient)
     await BusinessClient.findByIdAndUpdate(payment.businessClient, { $inc: { runningBalance: payment.amount } });
-  }
-  if (payment.linkedType === "individual" && payment.individualClient) {
+  if (payment.individualClient)
     await IndividualClient.findByIdAndUpdate(payment.individualClient, { $inc: { amountOwed: payment.amount } });
-  }
 
   res.json({ ok: true });
 });
 
 module.exports = router;
-

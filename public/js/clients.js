@@ -40,13 +40,20 @@ function buildWhatsAppUrl(client) {
   return `https://wa.me/${num}?text=${encodeURIComponent(msg)}`;
 }
 
+function filterClients() {
+  if (currentFilter === "all") return allClients;
+  if (currentFilter === "unpaid") return allClients.filter(c => c.status === "unpaid");
+  if (currentFilter === "paid") return allClients.filter(c => c.status === "paid");
+  if (currentFilter === "direct") return allClients.filter(c => (c.clientType || "direct") === "direct");
+  if (currentFilter === "partner") return allClients.filter(c => c.clientType === "partner");
+  return allClients;
+}
+
 function renderClients() {
   const tbody = document.getElementById("clientsTbody");
   const empty = document.getElementById("clientsEmpty");
 
-  const filtered = currentFilter === "all"
-    ? allClients
-    : allClients.filter(c => c.status === currentFilter);
+  const filtered = filterClients();
 
   tbody.innerHTML = "";
 
@@ -59,9 +66,22 @@ function renderClients() {
   filtered.forEach(c => {
     const waUrl = buildWhatsAppUrl(c);
     const isPaid = c.status === "paid";
+    const typeLabel = c.clientType === "partner" ? "Partner" : "Direct";
+    const typePill = c.clientType === "partner"
+      ? `<span class="pill bad" style="font-size:11px">${typeLabel}</span>`
+      : `<span class="pill" style="font-size:11px">${typeLabel}</span>`;
+
+    let orgLabel = escapeHtml(c.organisation || "—");
+    if (c.organisation === "Carehome" && c.carehomeLocation) {
+      orgLabel = `Carehome — ${escapeHtml(c.carehomeLocation)}`;
+    }
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${escapeHtml(c.name)}</strong></td>
+      <td>${typePill}</td>
+      <td>${orgLabel}</td>
+      <td>${escapeHtml(c.postcode || "—")}</td>
       <td>${escapeHtml(c.whatsappNumber || "—")}</td>
       <td><span class="pill ${isPaid ? "good" : c.amountOwed > 0 ? "bad" : ""}">${money(c.amountOwed)}</span></td>
       <td>
@@ -125,9 +145,11 @@ function renderKPIs() {
   const total = allClients.length;
   const unpaid = allClients.filter(c => c.status === "unpaid").length;
   const owed = allClients.reduce((s, c) => s + (Number(c.amountOwed) || 0), 0);
+  const partners = allClients.filter(c => c.clientType === "partner").length;
   document.getElementById("kpiTotal").textContent = total;
   document.getElementById("kpiUnpaid").textContent = unpaid;
   document.getElementById("kpiOwed").textContent = money(owed);
+  document.getElementById("kpiPartners").textContent = partners;
 }
 
 async function loadClients() {
@@ -141,36 +163,88 @@ async function loadClients() {
 }
 
 // Filter buttons
+const filterLabels = {
+  all: "All clients",
+  unpaid: "Unpaid only",
+  paid: "Paid only",
+  direct: "Direct clients",
+  partner: "Partner clients"
+};
+
 function setFilter(f) {
   currentFilter = f;
-  const subtitles = { all: "All clients", unpaid: "Unpaid only", paid: "Paid only" };
-  document.getElementById("listSubtitle").textContent = subtitles[f];
-  document.getElementById("filterAll").classList.toggle("active-filter", f === "all");
-  document.getElementById("filterUnpaid").classList.toggle("active-filter", f === "unpaid");
-  document.getElementById("filterPaid").classList.toggle("active-filter", f === "paid");
+  document.getElementById("listSubtitle").textContent = filterLabels[f] || "All clients";
+  ["filterAll", "filterUnpaid", "filterPaid", "filterDirect", "filterPartner"].forEach(id => {
+    const key = id.replace("filter", "").toLowerCase();
+    document.getElementById(id).classList.toggle("active-filter", key === f);
+  });
   renderClients();
 }
 
 document.getElementById("filterAll").addEventListener("click", () => setFilter("all"));
 document.getElementById("filterUnpaid").addEventListener("click", () => setFilter("unpaid"));
 document.getElementById("filterPaid").addEventListener("click", () => setFilter("paid"));
+document.getElementById("filterDirect").addEventListener("click", () => setFilter("direct"));
+document.getElementById("filterPartner").addEventListener("click", () => setFilter("partner"));
 document.getElementById("refreshBtn").addEventListener("click", loadClients);
+
+// Client type toggle
+document.querySelectorAll(".client-type-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".client-type-btn").forEach(b => b.classList.remove("active-filter"));
+    btn.classList.add("active-filter");
+    document.getElementById("clientType").value = btn.dataset.type;
+  });
+});
+
+// Organisation → show/hide carehome location and custom org input
+document.getElementById("clientOrganisation").addEventListener("change", () => {
+  const val = document.getElementById("clientOrganisation").value;
+  document.getElementById("carehomeLocationWrap").style.display = val === "Carehome" ? "block" : "none";
+  document.getElementById("customOrgWrap").style.display = val === "Other" ? "block" : "none";
+  if (val !== "Carehome") document.getElementById("carehomeLocation").value = "";
+  if (val !== "Other") document.getElementById("customOrgName").value = "";
+});
 
 // Add client form
 document.getElementById("addClientForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = document.getElementById("clientName").value.trim();
   const whatsappNumber = document.getElementById("clientWhatsapp").value.trim();
+  const postcode = document.getElementById("clientPostcode").value.trim();
+  const clientType = document.getElementById("clientType").value;
+  const orgSelect = document.getElementById("clientOrganisation").value;
+  const customOrgName = document.getElementById("customOrgName").value.trim();
+  const organisation = orgSelect === "Other" ? customOrgName : orgSelect;
+  const carehomeLocation = organisation === "Carehome"
+    ? document.getElementById("carehomeLocation").value
+    : "";
+
+  if (!name) return toast("Please enter a name.");
+  if (orgSelect === "Other" && !customOrgName) return toast("Please enter the organisation name.");
+  if (organisation === "Carehome" && !carehomeLocation) return toast("Please select a Carehome location.");
+
   const btn = e.target.querySelector(".btn.primary");
   btn.disabled = true;
   try {
     await api("/api/individual-clients", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, whatsappNumber })
+      body: JSON.stringify({ name, whatsappNumber, postcode, clientType, organisation, carehomeLocation })
     });
+    // Reset form
     document.getElementById("clientName").value = "";
     document.getElementById("clientWhatsapp").value = "";
+    document.getElementById("clientPostcode").value = "";
+    document.getElementById("clientType").value = "direct";
+    document.querySelectorAll(".client-type-btn").forEach(b => {
+      b.classList.toggle("active-filter", b.dataset.type === "direct");
+    });
+    document.getElementById("clientOrganisation").value = "";
+    document.getElementById("carehomeLocationWrap").style.display = "none";
+    document.getElementById("carehomeLocation").value = "";
+    document.getElementById("customOrgWrap").style.display = "none";
+    document.getElementById("customOrgName").value = "";
     await loadClients();
     toast(`"${name}" added.`);
   } catch (e) {
