@@ -519,6 +519,71 @@ tbody tr:hover { background: rgba(155,28,28,.03); }
   .pill       { font-size: 11px; padding: 3px 8px; }
 }
 
+/* ── Proof upload drop zone ───────────────────────────── */
+.proof-drop-zone {
+  border: 2px dashed rgba(0,0,0,.18);
+  border-radius: var(--radius-sm);
+  background: rgba(0,0,0,.02);
+  padding: 18px 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--t) var(--ease), background var(--t) var(--ease);
+  outline: none;
+}
+.proof-drop-zone:hover,
+.proof-drop-zone:focus {
+  border-color: rgba(155,28,28,.40);
+  background: rgba(155,28,28,.04);
+}
+.proof-drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(155,28,28,.07);
+  transform: scale(1.01);
+}
+.proof-empty { display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; }
+
+/* ── Lightbox ─────────────────────────────────────────── */
+.lightbox {
+  position: fixed; inset: 0;
+  z-index: 500;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.lightbox-inner {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 20px;
+  max-width: min(90vw, 740px);
+  max-height: 90vh;
+  overflow: auto;
+  animation: lightboxIn .2s var(--ease);
+}
+.lightbox-close {
+  position: absolute; top: 10px; right: 12px;
+  width: 32px; height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,.05);
+  font-size: 18px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t) var(--ease);
+}
+.lightbox-close:hover { background: rgba(0,0,0,.12); }
+@keyframes lightboxIn {
+  from { transform: scale(.92); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
 /* ── Print styles ─────────────────────────────────────── */
 @media print {
   .fx-bg, .topbar, .toast, .nav-overlay { display: none !important; }

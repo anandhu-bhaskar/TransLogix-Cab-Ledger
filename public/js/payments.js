@@ -67,9 +67,11 @@ async function loadPayments() {
     let proofCell = "—";
     if (p.proof?.url) {
       const isImage = p.proof.resourceType === "image" || /\.(png|jpe?g|gif|webp)$/i.test(p.proof.url);
+      const safeUrl  = escapeHtml(p.proof.url);
+      const safeName = escapeHtml(p.proof.originalFilename || (isImage ? "proof" : "proof.pdf"));
       proofCell = isImage
-        ? `<a href="${escapeHtml(p.proof.url)}" target="_blank" rel="noreferrer" class="btn small">View</a>`
-        : `<a href="${escapeHtml(p.proof.url)}" target="_blank" rel="noreferrer" class="btn small">PDF</a>`;
+        ? `<button class="btn small proof-view-btn" data-url="${safeUrl}" data-type="image" type="button">View</button>`
+        : `<button class="btn small proof-view-btn" data-url="${safeUrl}" data-type="pdf" data-name="${safeName}" type="button">PDF</button>`;
     }
 
     let nameCell = escapeHtml(clientName);
@@ -106,7 +108,47 @@ async function loadPayments() {
       }
     });
   });
+
+  tbody.querySelectorAll(".proof-view-btn").forEach(btn => {
+    btn.addEventListener("click", () => openLightbox(btn.dataset.url, btn.dataset.type, btn.dataset.name));
+  });
 }
+
+// ── Lightbox ───────────────────────────────────────────────
+
+function openLightbox(url, type, name) {
+  const lb      = document.getElementById("proofLightbox");
+  const img     = document.getElementById("lightboxImg");
+  const pdfBox  = document.getElementById("lightboxPdf");
+  const pdfLink = document.getElementById("lightboxPdfLink");
+  const pdfName = document.getElementById("lightboxPdfName");
+
+  if (type === "image") {
+    img.src            = url;
+    img.style.display  = "block";
+    pdfBox.style.display = "none";
+  } else {
+    img.style.display    = "none";
+    pdfBox.style.display = "block";
+    pdfLink.href         = url;
+    pdfName.textContent  = name || "proof.pdf";
+  }
+  lb.style.display = "flex";
+  document.body.style.overflow = "hidden";
+}
+
+function closeLightbox() {
+  const lb = document.getElementById("proofLightbox");
+  lb.style.display = "none";
+  document.getElementById("lightboxImg").src = "";
+  document.body.style.overflow = "";
+}
+
+document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
+document.getElementById("lightboxBackdrop").addEventListener("click", closeLightbox);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && document.getElementById("proofLightbox").style.display !== "none") closeLightbox();
+});
 
 // ── Client type toggle ─────────────────────────────────────
 
@@ -135,14 +177,84 @@ document.querySelectorAll(".pay-method-btn").forEach(btn => {
   });
 });
 
-// ── Proof file label ───────────────────────────────────────
+// ── Proof upload: drag-and-drop + preview ──────────────────
 
-document.getElementById("proofFile").addEventListener("change", () => {
-  const file = document.getElementById("proofFile").files[0];
-  document.getElementById("proofLabel").textContent = file ? file.name : "Choose file…";
-  document.getElementById("proofNote").textContent = file
-    ? `${(file.size / 1024).toFixed(0)} KB — ${file.type || "unknown type"}`
-    : "";
+const proofDrop  = document.getElementById("proofDropZone");
+const proofInput = document.getElementById("proofFile");
+
+function setProofFile(file) {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast("File too large — max 5 MB."); return; }
+
+  // Transfer to the hidden input via DataTransfer
+  const dt = new DataTransfer();
+  dt.items.add(file);
+  proofInput.files = dt.files;
+
+  const isImage = file.type.startsWith("image/");
+  const isPdf   = file.type === "application/pdf";
+
+  document.getElementById("proofEmpty").style.display   = "none";
+  document.getElementById("proofPreview").style.display = "flex";
+  document.getElementById("proofName").textContent = file.name;
+  document.getElementById("proofSize").textContent = `${(file.size / 1024).toFixed(0)} KB`;
+
+  const thumb   = document.getElementById("proofThumb");
+  const pdfIcon = document.getElementById("proofPdfIcon");
+
+  if (isImage) {
+    thumb.style.display   = "block";
+    pdfIcon.style.display = "none";
+    const reader = new FileReader();
+    reader.onload = e => { thumb.src = e.target.result; };
+    reader.readAsDataURL(file);
+  } else if (isPdf) {
+    thumb.style.display   = "none";
+    pdfIcon.style.display = "block";
+  } else {
+    thumb.style.display   = "none";
+    pdfIcon.style.display = "none";
+  }
+}
+
+function clearProof() {
+  proofInput.value = "";
+  document.getElementById("proofEmpty").style.display   = "flex";
+  document.getElementById("proofPreview").style.display = "none";
+  document.getElementById("proofThumb").src             = "";
+  document.getElementById("proofName").textContent      = "";
+  document.getElementById("proofSize").textContent      = "";
+}
+
+// Click to open file picker
+proofDrop.addEventListener("click", (e) => {
+  if (e.target.id === "proofClearBtn") return;
+  proofInput.click();
+});
+proofDrop.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); proofInput.click(); }
+});
+
+proofInput.addEventListener("change", () => {
+  if (proofInput.files[0]) setProofFile(proofInput.files[0]);
+});
+
+document.getElementById("proofClearBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  clearProof();
+});
+
+// Drag-and-drop
+proofDrop.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  proofDrop.classList.add("drag-over");
+});
+proofDrop.addEventListener("dragleave", () => proofDrop.classList.remove("drag-over"));
+proofDrop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  proofDrop.classList.remove("drag-over");
+  const file = e.dataTransfer?.files?.[0];
+  if (file) setProofFile(file);
 });
 
 // ── Third-party payer ──────────────────────────────────────
@@ -225,8 +337,7 @@ function resetForm() {
     b.classList.toggle("active-method", b.dataset.method === "Bank Transfer");
   });
   document.getElementById("method").value = "Bank Transfer";
-  document.getElementById("proofLabel").textContent = "Choose file…";
-  document.getElementById("proofNote").textContent = "";
+  clearProof();
   document.getElementById("paidByWrap").style.display = "none";
   document.getElementById("partnerClientId").value = "";
   document.getElementById("individualClientId").value = "";

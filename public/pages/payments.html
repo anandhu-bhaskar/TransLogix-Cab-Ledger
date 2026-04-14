@@ -107,11 +107,21 @@
                 <!-- Proof upload -->
                 <div>
                   <div class="muted" style="font-weight:800;margin-bottom:6px">Upload proof <span style="font-weight:500">(optional)</span></div>
-                  <label class="btn" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-                    <span id="proofLabel">Choose file…</span>
+                  <div id="proofDropZone" class="proof-drop-zone" tabindex="0" role="button" aria-label="Upload payment proof">
                     <input id="proofFile" type="file" accept="image/*,application/pdf" style="display:none" />
-                  </label>
-                  <div class="footer-note" id="proofNote" style="margin-top:4px"></div>
+                    <div id="proofEmpty" class="proof-empty">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted)"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <div style="font-weight:700;font-size:13px;margin-top:6px">Drop file here or click to browse</div>
+                      <div style="font-size:11px;color:var(--muted);margin-top:2px">JPG, PNG, PDF — max 5 MB</div>
+                    </div>
+                    <div id="proofPreview" style="display:none;flex-direction:column;align-items:center;gap:8px;padding:6px 0">
+                      <img id="proofThumb" src="" alt="Preview" style="max-width:100%;max-height:120px;border-radius:8px;object-fit:contain;border:1px solid var(--border)" />
+                      <div id="proofPdfIcon" style="display:none;font-size:32px">📄</div>
+                      <div id="proofName" style="font-size:12px;font-weight:700;color:var(--text);word-break:break-all;text-align:center"></div>
+                      <div id="proofSize" style="font-size:11px;color:var(--muted)"></div>
+                      <button type="button" id="proofClearBtn" class="btn small" style="color:#9b1c1c;border-color:rgba(155,28,28,.3)">Remove</button>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Third-party payer -->
@@ -171,6 +181,20 @@
 
       </div>
     </main>
+
+    <!-- Proof lightbox -->
+    <div id="proofLightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Payment proof" style="display:none">
+      <div class="lightbox-backdrop" id="lightboxBackdrop"></div>
+      <div class="lightbox-inner">
+        <button class="lightbox-close" id="lightboxClose" aria-label="Close">&times;</button>
+        <img id="lightboxImg" src="" alt="Payment proof" style="max-width:100%;max-height:80vh;border-radius:10px;display:none" />
+        <div id="lightboxPdf" style="display:none;text-align:center;padding:20px">
+          <div style="font-size:48px;margin-bottom:12px">📄</div>
+          <div id="lightboxPdfName" style="font-weight:700;margin-bottom:12px"></div>
+          <a id="lightboxPdfLink" href="#" target="_blank" rel="noreferrer" class="btn primary">Open PDF</a>
+        </div>
+      </div>
+    </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/js/ui.js"></script>
