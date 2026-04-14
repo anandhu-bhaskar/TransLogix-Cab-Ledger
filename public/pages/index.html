@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Transport Billing — Dashboard</title>
+    <title>Transport Billing — Analytics</title>
     <link rel="stylesheet" href="/css/style.css" />
   </head>
   <body>
@@ -19,17 +19,13 @@
       <div class="topbar-inner">
         <a class="brand" href="/pages/index.html" aria-label="Dashboard">
           <span class="brand-badge" aria-hidden="true"></span>
-          <span>
-            Transport Billing
-            <small>Dashboard</small>
-          </span>
+          <span>Transport Billing<small>Analytics</small></span>
         </a>
         <nav class="nav" aria-label="Primary navigation">
           <a class="active" href="/pages/index.html">Dashboard</a>
           <a href="/pages/trips.html">Trips</a>
           <a href="/pages/payments.html">Payments</a>
           <a href="/pages/clients.html">Clients</a>
-          <a href="/pages/workers.html">Workers</a>
           <a href="/pages/invoice.html">Invoice</a>
           <a href="/pages/settings.html">Settings</a>
           <button class="btn small" id="logoutBtn" type="button">Sign out</button>
@@ -37,145 +33,160 @@
       </div>
     </header>
 
-    <main class="container">
-      <div class="grid cols-3" style="margin-top: 14px">
+    <main class="container" style="padding-bottom:32px">
+
+      <!-- ── Title + Period picker ── -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 12px">
+        <div>
+          <div style="font-size:21px;font-weight:900;letter-spacing:-0.5px">Analytics</div>
+          <div class="muted" style="font-size:12px" id="lastUpdated">Loading…</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="display:flex;gap:4px" id="periodTabs">
+            <button class="btn small period-btn active-period" data-days="7">7d</button>
+            <button class="btn small period-btn" data-days="30">30d</button>
+            <button class="btn small period-btn" data-days="90">90d</button>
+            <button class="btn small period-btn" data-days="0">All</button>
+          </div>
+          <button class="btn small" id="refreshBtn" title="Refresh" style="padding:0 10px">↻</button>
+        </div>
+      </div>
+
+      <!-- ── KPI strip ── -->
+      <div id="kpiStrip" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+        <div class="card kpi-card" id="kpi0"></div>
+        <div class="card kpi-card" id="kpi1"></div>
+        <div class="card kpi-card" id="kpi2"></div>
+        <div class="card kpi-card" id="kpi3"></div>
+        <div class="card kpi-card" id="kpi4"></div>
+      </div>
+
+      <!-- ── Metrics grid ── -->
+      <div id="metricsGrid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+        <div class="card metric-card" id="m0"></div>
+        <div class="card metric-card" id="m1"></div>
+        <div class="card metric-card" id="m2"></div>
+        <div class="card metric-card" id="m3"></div>
+        <div class="card metric-card" id="m4"></div>
+        <div class="card metric-card" id="m5"></div>
+        <div class="card metric-card" id="m6"></div>
+        <div class="card metric-card" id="m7"></div>
+        <div class="card metric-card" id="m8"></div>
+        <div class="card metric-card" id="m9"></div>
+      </div>
+
+      <!-- ── Row A: Revenue/Collections + Payment methods ── -->
+      <div id="rowA" style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Billed vs Received</div>
+              <div class="card-subtitle" id="revenueSubtitle" style="font-variant-numeric:tabular-nums">—</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="position:relative;height:220px">
+              <canvas id="chartRevenue"></canvas>
+              <div class="chart-empty" id="emptyRevenue">No trip data yet</div>
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Payment methods</div>
+              <div class="card-subtitle" id="methodsSubtitle">By amount received</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="position:relative;height:220px">
+              <canvas id="chartMethods"></canvas>
+              <div class="chart-empty" id="emptyMethods">No payments yet</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ── Row B: Outstanding + Routes ── -->
+      <div id="rowB" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Still to collect</div>
+              <div class="card-subtitle">Who owes you · live balance</div>
+            </div>
+            <a class="btn small" href="/pages/clients.html">View all</a>
+          </div>
+          <div class="card-body">
+            <div style="position:relative;height:260px">
+              <canvas id="chartOutstanding"></canvas>
+              <div class="chart-empty" id="emptyOutstanding">All clients are clear!</div>
+            </div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Trips by route</div>
+              <div class="card-subtitle">Top routes in period</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div style="position:relative;height:260px">
+              <canvas id="chartRoutes"></canvas>
+              <div class="chart-empty" id="emptyRoutes">No trips in this period</div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ── Row C: Client types + Collection ring + Unpaid list ── -->
+      <div id="rowC" style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:14px">
+
+        <section class="card">
+          <div class="card-header">
+            <div class="card-title">Client split</div>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;align-items:center">
+            <div style="position:relative;height:170px;width:100%">
+              <canvas id="chartTypes"></canvas>
+              <div class="chart-empty" id="emptyTypes">No clients yet</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Collection rate</div>
+              <div class="card-subtitle">Payments vs charges</div>
+            </div>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px">
+            <div id="collectionRingWrap"></div>
+          </div>
+        </section>
+
         <section class="card">
           <div class="card-header">
             <div>
               <div class="card-title">Unpaid clients</div>
-              <div class="card-subtitle">People with outstanding balance</div>
+              <div class="card-subtitle">Highest balance first</div>
             </div>
-            <span class="pill bad" id="kpiUnpaidCount">—</span>
+            <a class="btn small" href="/pages/clients.html">All clients</a>
           </div>
           <div class="card-body">
-            <div class="kpi">
-              <div class="value" id="kpiUnpaidAmount">—</div>
-              <div class="label">owed</div>
-            </div>
-            <div class="footer-note">Balances update when you add trips or payments.</div>
+            <div id="unpaidList"></div>
+            <div class="footer-note" id="unpaidEmpty" style="display:none">All clients are paid up!</div>
           </div>
         </section>
 
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Total clients</div>
-              <div class="card-subtitle">All individual clients</div>
-            </div>
-            <span class="pill" id="kpiTotalCount">—</span>
-          </div>
-          <div class="card-body">
-            <div class="kpi">
-              <div class="value" id="kpiPaidCount">—</div>
-              <div class="label">paid</div>
-            </div>
-            <div class="footer-note">Clients marked as paid this period.</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Quick actions</div>
-              <div class="card-subtitle">Common tasks</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <a class="btn primary" href="/pages/trips.html">Add Trip</a>
-              <a class="btn primary" href="/pages/payments.html">Add Payment</a>
-              <a class="btn" href="/pages/invoice.html">Generate Invoice</a>
-            </div>
-          </div>
-        </section>
       </div>
 
-      <div class="grid cols-2" style="margin-top: 12px">
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Unpaid individuals</div>
-              <div class="card-subtitle">Tap WhatsApp to message</div>
-            </div>
-            <a class="btn small" href="/pages/clients.html">All</a>
-          </div>
-          <div class="card-body">
-            <div class="list" id="unpaidList"></div>
-            <div class="footer-note" id="unpaidEmpty" style="display: none">No unpaid balances.</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Recent trips</div>
-              <div class="card-subtitle">Latest logged shifts</div>
-            </div>
-            <a class="btn small" href="/pages/trips.html">View</a>
-          </div>
-          <div class="card-body">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Route</th>
-                    <th>People</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody id="recentTripsTbody"></tbody>
-              </table>
-            </div>
-            <div class="footer-note" id="tripsEmpty" style="display: none">No trips yet.</div>
-          </div>
-        </section>
-      </div>
-
-      <div class="grid cols-2" style="margin-top: 12px">
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Recent payments</div>
-              <div class="card-subtitle">Latest money received</div>
-            </div>
-            <a class="btn small" href="/pages/payments.html">View</a>
-          </div>
-          <div class="card-body">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Date</th>
-                    <th>Method</th>
-                    <th>Amount</th>
-                  </tr>
-                </thead>
-                <tbody id="recentPaymentsTbody"></tbody>
-              </table>
-            </div>
-            <div class="footer-note" id="paymentsEmpty" style="display: none">No payments yet.</div>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">All clients</div>
-              <div class="card-subtitle">Balance overview</div>
-            </div>
-            <a class="btn small" href="/pages/clients.html">Manage</a>
-          </div>
-          <div class="card-body">
-            <div class="list" id="allClientsList"></div>
-            <div class="footer-note" id="allClientsEmpty" style="display: none">No clients yet.</div>
-          </div>
-        </section>
-      </div>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="/js/ui.js"></script>
     <script src="/js/auth-guard.js"></script>
     <script src="/js/dashboard.js"></script>

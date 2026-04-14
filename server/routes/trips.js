@@ -37,8 +37,8 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   const {
     date,
-    routeId,
-    customRouteName,
+    origin,
+    destination,
     variant,
     workerIds,
     customWorkerNames,
@@ -63,16 +63,10 @@ router.post("/", async (req, res) => {
   if (!["direct", "partner"].includes(paymentMethod))
     return res.status(400).json({ error: "paymentMethod must be direct or partner." });
 
-  // Resolve route
-  let resolvedRoute = null;
-  let resolvedCustomName = "";
-  if (routeId && routeId !== "other") {
-    resolvedRoute = await Route.findById(routeId);
-    if (!resolvedRoute) return res.status(400).json({ error: "Invalid routeId." });
-  } else {
-    resolvedCustomName = customRouteName ? String(customRouteName).trim() : "";
-    if (!resolvedCustomName) return res.status(400).json({ error: "Custom route name is required when route is Other." });
-  }
+  const orig = origin ? String(origin).trim() : "";
+  const dest = destination ? String(destination).trim() : "";
+  if (!orig) return res.status(400).json({ error: "Origin is required." });
+  if (!dest) return res.status(400).json({ error: "Destination is required." });
 
   // Resolve workers
   const workerIdsArr = Array.isArray(workerIds) ? workerIds : [];
@@ -81,8 +75,8 @@ router.post("/", async (req, res) => {
 
   const tripPayload = {
     date: d,
-    route: resolvedRoute ? resolvedRoute._id : undefined,
-    customRouteName: resolvedCustomName,
+    origin: orig,
+    destination: dest,
     variant: variant ? String(variant).trim() : "",
     workers: uniqueWorkerIds,
     customWorkerNames: Array.isArray(customWorkerNames)

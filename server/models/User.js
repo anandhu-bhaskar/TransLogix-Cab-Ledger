@@ -7,14 +7,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String }, // null for Google-only accounts
     googleId: { type: String },
-    avatar: { type: String },
-
-    // Per-user TextBee SMS integration
-    smsEnabled: { type: Boolean, default: false },
-    textbee: {
-      apiKeyEnc: { type: String },   // AES-encrypted API key — never sent to frontend
-      deviceId:  { type: String, trim: true }
-    }
+    avatar: { type: String }
   },
   { timestamps: true }
 );

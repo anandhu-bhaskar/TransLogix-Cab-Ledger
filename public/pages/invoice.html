@@ -14,7 +14,7 @@
       <div class="fx-noise"></div>
       <div class="fx-vignette"></div>
     </div>
-    <header class="topbar">
+    <header class="topbar no-print">
       <div class="topbar-inner">
         <a class="brand" href="/pages/index.html" aria-label="Dashboard">
           <span class="brand-badge" aria-hidden="true"></span>
@@ -25,67 +25,98 @@
           <a href="/pages/trips.html">Trips</a>
           <a href="/pages/payments.html">Payments</a>
           <a href="/pages/clients.html">Clients</a>
-          <a href="/pages/workers.html">Workers</a>
           <a class="active" href="/pages/invoice.html">Invoice</a>
           <a href="/pages/settings.html">Settings</a>
           <button class="btn small" id="logoutBtn" type="button">Sign out</button>
         </nav>
       </div>
     </header>
-    <main class="container">
-      <div style="max-width:540px;margin-top:14px">
-        <section class="card">
+
+    <main class="container" style="margin-top:14px">
+      <div id="invoiceLayout" style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
+
+        <!-- ── Left: Config ── -->
+        <section class="card no-print" id="invoiceConfig">
           <div class="card-header">
             <div>
               <div class="card-title">Generate invoice</div>
-              <div class="card-subtitle">Download a Word document summary</div>
+              <div class="card-subtitle">Preview then print or save as PDF</div>
             </div>
           </div>
           <div class="card-body">
-            <form id="invoiceForm">
-              <div class="grid" style="gap:10px">
+            <div class="grid" style="gap:12px">
 
-                <!-- Step 1: client type -->
-                <div>
-                  <div class="muted" style="font-weight:800;margin-bottom:8px">Client type</div>
-                  <div class="row" style="gap:8px">
-                    <button type="button" class="btn inv-type-btn active-type" data-type="all">All</button>
-                    <button type="button" class="btn inv-type-btn" data-type="direct">Direct</button>
-                    <button type="button" class="btn inv-type-btn" data-type="partner">Partner</button>
-                  </div>
-                  <input type="hidden" id="invoiceClientType" value="all" />
+              <!-- Client type -->
+              <div>
+                <div class="muted" style="font-weight:800;margin-bottom:8px">Client type</div>
+                <div class="row" style="gap:8px">
+                  <button type="button" class="btn inv-type-btn active-type" data-type="all">All</button>
+                  <button type="button" class="btn inv-type-btn" data-type="direct">Direct</button>
+                  <button type="button" class="btn inv-type-btn" data-type="partner">Partner</button>
                 </div>
-
-                <!-- Step 2: client name (filtered by type) -->
-                <label>
-                  <div class="muted" style="font-weight:800;margin-bottom:6px">Client</div>
-                  <select id="clientId" class="input" required>
-                    <option value="">Select client…</option>
-                  </select>
-                </label>
-                <div class="grid cols-2">
-                  <label>
-                    <div class="muted" style="font-weight:800;margin-bottom:6px">From date</div>
-                    <input id="fromDate" type="date" class="input" required />
-                  </label>
-                  <label>
-                    <div class="muted" style="font-weight:800;margin-bottom:6px">To date</div>
-                    <input id="toDate" type="date" class="input" required />
-                  </label>
-                </div>
-                <label>
-                  <div class="muted" style="font-weight:800;margin-bottom:6px">Previous balance (£)</div>
-                  <input id="prevBalance" type="number" step="0.01" class="input" placeholder="0.00" />
-                </label>
-                <div class="row">
-                  <button type="submit" class="btn primary">Download invoice</button>
-                </div>
+                <input type="hidden" id="invoiceClientType" value="all" />
               </div>
-            </form>
+
+              <!-- Client -->
+              <label>
+                <div class="muted" style="font-weight:800;margin-bottom:6px">Client</div>
+                <select id="clientId" class="input">
+                  <option value="">Select client…</option>
+                </select>
+              </label>
+
+              <!-- Date range -->
+              <div class="grid cols-2" style="gap:8px">
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">From</div>
+                  <input id="fromDate" type="date" class="input" />
+                </label>
+                <label>
+                  <div class="muted" style="font-weight:800;margin-bottom:6px">To</div>
+                  <input id="toDate" type="date" class="input" />
+                </label>
+              </div>
+
+              <!-- Previous balance -->
+              <label>
+                <div class="muted" style="font-weight:800;margin-bottom:6px">Previous balance (£) <span style="font-weight:500">(optional)</span></div>
+                <input id="prevBalance" type="number" step="0.01" class="input" placeholder="0.00" />
+              </label>
+
+              <!-- Adjustments -->
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div class="muted" style="font-weight:800">Adjustments</div>
+                  <button type="button" class="btn small" id="addAdjBtn">+ Add</button>
+                </div>
+                <div id="adjList" style="display:grid;gap:6px"></div>
+                <div class="footer-note" id="adjEmpty" style="margin-top:4px">No adjustments. Add extras or discounts.</div>
+              </div>
+
+              <!-- Actions -->
+              <div class="row" style="gap:8px;margin-top:4px">
+                <button type="button" class="btn primary" id="previewBtn">Preview invoice</button>
+                <button type="button" class="btn" id="clearBtn">Clear</button>
+              </div>
+
+            </div>
           </div>
         </section>
+
+        <!-- ── Right: Preview ── -->
+        <div id="previewArea" style="display:none">
+          <div class="row no-print" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-weight:800;font-size:16px">Invoice preview</div>
+            <button type="button" class="btn primary small" id="printBtn">Print / Save as PDF</button>
+          </div>
+          <div id="invoicePreview" style="background:#fff;border-radius:var(--radius);border:1px solid var(--border);padding:36px 40px;font-size:13px;line-height:1.6;color:#111">
+            <!-- rendered by JS -->
+          </div>
+        </div>
+
       </div>
     </main>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="/js/ui.js"></script>
     <script src="/js/auth-guard.js"></script>

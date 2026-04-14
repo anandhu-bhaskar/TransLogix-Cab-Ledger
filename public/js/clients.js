@@ -254,7 +254,136 @@ document.getElementById("addClientForm").addEventListener("submit", async (e) =>
   }
 });
 
-// Active filter button styling
+// ── VCF parser ────────────────────────────────────────────
+
+function parseVcf(text) {
+  const contacts = [];
+  const cards = text.split(/BEGIN:VCARD/i).slice(1); // split on each vCard block
+
+  cards.forEach(card => {
+    let name = "";
+    let phone = "";
+
+    card.split(/\r?\n/).forEach(line => {
+      // Full name
+      if (/^FN[:;]/i.test(line)) {
+        name = line.replace(/^FN[:;][^:]*:/i, "").trim();
+      }
+      // Phone — grab the first TEL line
+      if (!phone && /^TEL[:;]/i.test(line)) {
+        phone = line.replace(/^TEL[^:]*:/i, "").replace(/\s+/g, "").trim();
+      }
+    });
+
+    if (name) contacts.push({ name, phone });
+  });
+
+  return contacts;
+}
+
+// ── Contact Picker API ─────────────────────────────────────
+
+let pendingImports = [];
+
+// Show native picker button only on Android (Contact Picker API)
+if ("contacts" in navigator && "ContactsManager" in window) {
+  document.getElementById("importContactsBtn").style.display = "inline-flex";
+}
+
+function showImportPreview(contacts) {
+  pendingImports = contacts.filter(c => c.name);
+  if (!pendingImports.length) return toast("No valid contacts found.");
+
+  const list = document.getElementById("importList");
+  list.innerHTML = "";
+  pendingImports.forEach((c, i) => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;border-bottom:1px solid #eee";
+    row.innerHTML = `
+      <input type="checkbox" data-idx="${i}" checked style="width:14px;height:14px;accent-color:#9b1c1c;flex-shrink:0" />
+      <span style="flex:1;font-weight:700">${escapeHtml(c.name)}</span>
+      <span class="muted">${escapeHtml(c.phone || "No number")}</span>
+    `;
+    list.appendChild(row);
+  });
+
+  document.getElementById("importNote").textContent = "";
+  document.getElementById("importPreview").style.display = "block";
+}
+
+// Android: Contact Picker API
+document.getElementById("importContactsBtn").addEventListener("click", async () => {
+  try {
+    const raw = await navigator.contacts.select(["name", "tel"], { multiple: true });
+    if (!raw.length) return;
+    const contacts = raw.map(c => ({
+      name: Array.isArray(c.name) ? c.name[0]?.trim() : (c.name || "").trim(),
+      phone: Array.isArray(c.tel)  ? c.tel[0]?.replace(/\s+/g, "") : ""
+    }));
+    showImportPreview(contacts);
+  } catch (e) {
+    if (e.name !== "AbortError") toast(`Contact picker error: ${e.message}`);
+  }
+});
+
+// iOS / all platforms: VCF file import
+document.getElementById("importVcfFile").addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
+
+  const contacts = [];
+  for (const file of files) {
+    const text = await file.text();
+    contacts.push(...parseVcf(text));
+  }
+
+  // Reset input so same file can be re-picked
+  e.target.value = "";
+
+  showImportPreview(contacts);
+});
+
+document.getElementById("importConfirmBtn").addEventListener("click", async () => {
+  const checked = Array.from(document.querySelectorAll("#importList input[type=checkbox]:checked"))
+    .map(el => pendingImports[Number(el.dataset.idx)])
+    .filter(Boolean);
+
+  if (!checked.length) return toast("No contacts selected.");
+
+  const note = document.getElementById("importNote");
+  note.textContent = `Importing ${checked.length} contact(s)…`;
+  document.getElementById("importConfirmBtn").disabled = true;
+
+  let imported = 0, skipped = 0;
+  for (const c of checked) {
+    try {
+      await api("/api/individual-clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: c.name, whatsappNumber: c.phone || "", clientType: "direct" })
+      });
+      imported++;
+    } catch {
+      skipped++; // likely duplicate name
+    }
+  }
+
+  document.getElementById("importConfirmBtn").disabled = false;
+  document.getElementById("importPreview").style.display = "none";
+  await loadClients();
+  const msg = skipped
+    ? `Imported ${imported}, skipped ${skipped} (already exist).`
+    : `${imported} contact(s) imported.`;
+  toast(msg);
+});
+
+document.getElementById("importCancelBtn").addEventListener("click", () => {
+  document.getElementById("importPreview").style.display = "none";
+  pendingImports = [];
+});
+
+// ── Active filter button styling ───────────────────────────
+
 const style = document.createElement("style");
 style.textContent = `.active-filter { background: rgba(155,28,28,.10); border-color: rgba(155,28,28,.28); color: #7f1d1d; }`;
 document.head.appendChild(style);

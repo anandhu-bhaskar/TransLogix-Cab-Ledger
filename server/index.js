@@ -21,7 +21,7 @@ const individualClientsRouter = require("./routes/individualClients");
 const paymentsRouter = require("./routes/payments");
 const invoiceRouter = require("./routes/invoice");
 const settingsRouter = require("./routes/settings");
-const userSmsRouter = require("./routes/userSms");
+const placesRouter = require("./routes/places");
 const authRouter = require("./routes/auth");
 
 const app = express();
@@ -134,7 +134,7 @@ app.use("/api/individual-clients", requireAuth, individualClientsRouter);
 app.use("/api/payments", requireAuth, paymentsRouter);
 app.use("/api/invoice", requireAuth, invoiceRouter);
 app.use("/api/settings", requireAuth, settingsRouter);
-app.use("/api/user", requireAuth, userSmsRouter);
+app.use("/api/places", requireAuth, placesRouter);
 
 async function start() {
   const mongoUri = process.env.MONGODB_URI;

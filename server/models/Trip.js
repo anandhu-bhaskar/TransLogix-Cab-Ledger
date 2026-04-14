@@ -20,7 +20,9 @@ const TripSchema = new mongoose.Schema(
   {
     date: { type: Date, required: true },
 
-    // Route — either a saved route or a custom name
+    // Route — origin/destination (new) or legacy saved route / custom name
+    origin: { type: String, trim: true },
+    destination: { type: String, trim: true },
     route: { type: mongoose.Schema.Types.ObjectId, ref: "Route" },
     customRouteName: { type: String, trim: true },
     variant: { type: String, trim: true },
