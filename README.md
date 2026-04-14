@@ -17,9 +17,10 @@ A full-stack web application for small transport operators to manage trips, trac
 9. [API Reference](#api-reference)
 10. [Data Models](#data-models)
 11. [Authentication](#authentication)
-12. [File Uploads (Cloudinary)](#file-uploads-cloudinary)
-13. [Deployment](#deployment)
-14. [Known Limitations](#known-limitations)
+12. [Security](#security)
+13. [File Uploads (Cloudinary)](#file-uploads-cloudinary)
+14. [Deployment](#deployment)
+15. [Known Limitations](#known-limitations)
 
 ---
 
@@ -108,13 +109,19 @@ The entire system is designed around one operator, one login, real data.
 | Database | MongoDB (Mongoose 8) |
 | Auth | Passport.js (Local + Google OAuth 2.0) |
 | Sessions | express-session + connect-mongo (7-day TTL) |
-| Password hashing | bcryptjs |
+| Password hashing | bcryptjs (cost factor 12) |
 | File uploads | Multer 2 + multer-storage-cloudinary |
 | Cloud storage | Cloudinary (payment proof images/PDFs) |
 | Frontend | Vanilla JavaScript (no framework) |
 | Charts | Chart.js 4.4.4 (CDN) |
 | CSS | Custom design system (CSS custom properties, mobile-first) |
 | Dev server | nodemon |
+| Security headers | Helmet 8 |
+| Rate limiting | express-rate-limit 8 |
+| Input validation | express-validator 7 |
+| NoSQL injection prevention | express-mongo-sanitize |
+| HTTP param pollution | hpp |
+| File type verification | file-type 16 (magic bytes) |
 
 ---
 
@@ -123,9 +130,13 @@ The entire system is designed around one operator, one login, real data.
 ```
 transport-billing-app/
 ├── server/
-│   ├── index.js                  # Express app entry point
+│   ├── index.js                  # Express app entry point + all security middleware
 │   ├── middleware/
-│   │   └── requireAuth.js        # Session auth guard for API routes
+│   │   ├── requireAuth.js        # Session auth guard for API routes
+│   │   ├── rateLimits.js         # Three-tier rate limiters (auth / api / strict)
+│   │   ├── validate.js           # express-validator rules for every route
+│   │   ├── uploadSecurity.js     # Magic-byte MIME verification for file uploads
+│   │   └── securityLogger.js     # Structured security event logging
 │   ├── models/
 │   │   ├── User.js
 │   │   ├── IndividualClient.js
@@ -198,18 +209,27 @@ npm install
 
 ### 3. Configure environment
 
-Copy the example below into a `.env` file at the project root:
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Key values to set:
 
 ```env
 MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/
 MONGODB_DB_NAME=translogix
-SESSION_SECRET=change-me-to-a-long-random-string
+# Generate with: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+SESSION_SECRET=<64-char-random-hex>
 CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
 
 # Optional — only needed if you want Google sign-in
 GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 ```
+
+> Never commit your `.env` file. It is in `.gitignore`.
 
 ### 4. Start the development server
 
@@ -241,13 +261,21 @@ Password: Demo@1234
 
 | Variable | Required | Description |
 |---|---|---|
-| `MONGODB_URI` | Yes | MongoDB connection string |
+| `MONGODB_URI` | Yes | MongoDB connection string — server exits on startup if missing |
 | `MONGODB_DB_NAME` | No | Database name (defaults to the one in the URI) |
-| `SESSION_SECRET` | Yes | Secret key for signing session cookies |
+| `SESSION_SECRET` | Yes | Secret for signing session cookies — must be long and random; server exits if missing |
 | `CLOUDINARY_URL` | Yes | Full Cloudinary URL — enables proof of payment uploads |
 | `PORT` | No | HTTP port (default: 3000) |
+| `NODE_ENV` | No | Set to `production` to enable HTTPS-only cookies, HSTS, and opaque error messages |
+| `ALLOWED_ORIGINS` | No | Comma-separated list of allowed CORS origins in production (e.g. `https://yourdomain.com`) |
 | `GOOGLE_CLIENT_ID` | No | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+| `GOOGLE_CALLBACK_URL` | No | Override the OAuth redirect URI for production (e.g. `https://yourdomain.com/auth/google/callback`) |
+
+**Generate a strong SESSION_SECRET:**
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+```
 
 ---
 
@@ -499,11 +527,13 @@ For `paymentMethod: "partner"`, replace `payerClientIds` with `"partnerClientId"
 
 ### User
 ```
-name          String (required)
-email         String (unique)
-password      String (bcrypt hash, optional — absent for Google accounts)
-googleId      String (optional)
-avatar        String (URL)
+name           String (required, max 100 chars)
+email          String (unique, lowercase)
+password       String (bcrypt hash, cost 12 — absent for Google-only accounts)
+googleId       String (optional)
+avatar         String (URL)
+loginAttempts  Number (incremented on each failed login, reset on success)
+lockUntil      Date   (set 15 min into the future after 5 failed attempts)
 ```
 
 ### IndividualClient
@@ -579,9 +609,10 @@ name  String (required, unique, case-insensitive index)
 
 ### Session-based
 - Login creates a 7-day server-side session stored in MongoDB (via `connect-mongo`)
-- The session cookie (`connect.sid`) is sent with every request
-- All `/api/*` routes (except `/auth/*` and `/api/health`) are protected by `requireAuth` middleware which returns `401` if no valid session exists
+- The session cookie (named `sid`) is `httpOnly`, `secure` in production, and `sameSite: strict` — see [Security → Session Security](#session-security) for full details
+- All `/api/*` routes (except `/auth/*` and `/api/health`) are protected by `requireAuth` middleware, which returns `401` and logs an `UNAUTHORISED` event if no valid session exists
 - The frontend `auth-guard.js` script checks `/auth/me` on every page load and redirects to `/pages/login.html` if unauthenticated
+- After 5 failed login attempts the account is locked for 15 minutes — see [Security → Account Lockout](#account-lockout-brute-force-protection)
 
 ### Google OAuth (optional)
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com)
@@ -589,6 +620,237 @@ name  String (required, unique, case-insensitive index)
 3. Create OAuth 2.0 credentials; set the redirect URI to `http://localhost:3000/auth/google/callback` (and your production URL)
 4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env`
 5. If a Google account email matches an existing local account, they are merged automatically
+
+---
+
+## Security
+
+TransLogix implements defence-in-depth across every layer of the stack. Below is an inventory of every protection in place.
+
+---
+
+### HTTP Security Headers (Helmet 8)
+
+All responses include hardened HTTP headers set by [Helmet](https://helmetjs.github.io/):
+
+| Header | Value / behaviour |
+|---|---|
+| `Content-Security-Policy` | `default-src 'self'`; scripts only from self + Chart.js CDN (exact version pinned); `frame-ancestors 'none'`; `object-src 'none'` |
+| `X-Frame-Options` | `DENY` — prevents the app being embedded in iframes (clickjacking) |
+| `X-Content-Type-Options` | `nosniff` — prevents MIME-type sniffing |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains; preload` — HTTPS enforced for 1 year (production only) |
+| `Referrer-Policy` | `no-referrer` — no URL leakage on navigation |
+| `Permissions-Policy` | Camera, microphone, geolocation all denied |
+
+The script-src CSP directive pins Chart.js to its exact CDN URL (`https://cdn.jsdelivr.net/npm/chart.js@4.4.4/`) so a compromised CDN file at a different version would be blocked.
+
+---
+
+### Rate Limiting (express-rate-limit 8)
+
+Three tiers protect against brute-force and abuse:
+
+| Limiter | Applies to | Limit |
+|---|---|---|
+| `authLimiter` | `POST /auth/login`, `POST /auth/signup` | 10 requests / 15 min per IP |
+| `apiLimiter` | All `/api/*` routes | 200 requests / 15 min per IP |
+| `strictLimiter` | `POST /api/payments`, `POST /api/invoice/data` | 30 requests / 15 min per IP |
+
+All limiters return `429 Too Many Requests` with a JSON body and standard `RateLimit-*` headers. The `trust proxy: 1` setting ensures the real client IP is used when behind Render / nginx rather than the proxy IP.
+
+---
+
+### Account Lockout (Brute-force protection)
+
+The `User` model tracks failed login attempts at the database level — not in memory — so it survives server restarts:
+
+- **5 consecutive failed logins** → account locked for **15 minutes** (`lockUntil` set on the user document)
+- The lock is checked **before** Passport's authentication strategy runs, short-circuiting the pipeline immediately
+- Successful login resets `loginAttempts` to 0 and clears `lockUntil`
+- A `ACCOUNT_LOCK` security event is logged every time a lock is triggered
+
+---
+
+### Input Validation & Sanitisation (express-validator 7)
+
+Every route that accepts user input has a dedicated validation rule set defined in `server/middleware/validate.js`:
+
+| Rule set | Route(s) |
+|---|---|
+| `signupRules` | `POST /auth/signup` |
+| `loginRules` | `POST /auth/login` |
+| `createTripRules` | `POST /api/trips` |
+| `createPaymentRules` | `POST /api/payments` |
+| `createClientRules` | `POST /api/individual-clients` |
+| `createBusinessClientRules` | `POST /api/business-clients` |
+| `createPlaceRules` | `POST /api/places` |
+| `updateSettingsRules` | `PUT /api/settings` |
+| `invoiceDataRules` | `POST /api/invoice/data` |
+| `mongoIdParam` | All `/:id` routes |
+
+Validation failures return `422 Unprocessable Entity` with field-level error detail. All string fields are trimmed and HTML-escaped (`.escape()`) to neutralise XSS payloads in stored data.
+
+The `mongoIdParam` guard validates that `:id` route parameters are valid MongoDB ObjectIds before any database call is made — preventing ObjectId cast errors from leaking internal stack traces.
+
+---
+
+### Password Policy
+
+Enforced at signup via `signupRules`:
+
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one digit
+- At least one special character (`!@#$%^&*` etc.)
+
+Passwords are hashed with **bcrypt at cost factor 12** before storage. Plain-text passwords are never logged or returned in API responses.
+
+---
+
+### NoSQL Injection Prevention (express-mongo-sanitize)
+
+Strips MongoDB operator characters (`$` and `.`) from all user-supplied data — `req.body`, `req.query`, and `req.params` — before any route handler runs. This prevents attacks like:
+
+```json
+{ "email": { "$gt": "" }, "password": { "$gt": "" } }
+```
+
+Sanitisation events are logged with the affected key and request path.
+
+Additionally, the `places.js` route regex-escapes the place name before using it in a `$regex` query, preventing ReDoS and regex injection.
+
+---
+
+### HTTP Parameter Pollution (hpp)
+
+`hpp` collapses duplicate query-string parameters to their last value, preventing attacks that pass arrays where scalars are expected. For example, `?method=Cash&method[$gt]=x` is normalised to `method=Cash` before validation runs.
+
+---
+
+### File Upload Security (uploadSecurity.js + file-type)
+
+Payment proof uploads go through multiple validation layers:
+
+1. **Multer limits**: Maximum 5 MB, maximum 1 file per request
+2. **Magic-byte MIME detection**: The `file-type` library reads the actual file signature (magic bytes) rather than trusting the `Content-Type` header, which any client can spoof
+3. **Extension cross-check**: When the file buffer isn't available (streaming upload to Cloudinary), the declared MIME type and file extension are both validated against the allowlist
+4. **Allowlist**: Only JPEG, PNG, GIF, WebP, and PDF are accepted — everything else returns `415 Unsupported Media Type`
+5. **Cloudinary transformation**: Images are processed server-side with `quality: auto` and `fetch_format: auto`, which **strips EXIF metadata** (GPS coordinates, device info) before storage
+6. **No path traversal**: `public_id` is set to `undefined` so Cloudinary generates a random ID — the original filename is never used as a storage path
+
+---
+
+### CORS (Cross-Origin Resource Sharing)
+
+CORS is locked to an explicit allowlist via the `ALLOWED_ORIGINS` environment variable:
+
+- In development: `http://localhost:3000` only
+- In production: set `ALLOWED_ORIGINS=https://yourdomain.com`
+- Requests from unlisted origins are blocked and a `CORS_BLOCK` security event is logged
+- `credentials: true` allows session cookies to be sent cross-origin (within the allowlist only)
+
+---
+
+### Session Security
+
+| Setting | Value | Purpose |
+|---|---|---|
+| Cookie name | `sid` (not `connect.sid`) | Obscures the framework stack |
+| `httpOnly` | `true` | JavaScript cannot read the session cookie |
+| `secure` | `true` in production | Cookie only sent over HTTPS |
+| `sameSite` | `strict` in production, `lax` in dev | CSRF mitigation — cookie not sent on cross-site requests |
+| `maxAge` | 7 days | Reasonable session lifetime |
+| `touchAfter` | 24 hours | Reduces unnecessary MongoDB writes |
+| Logout | Full `session.destroy()` + `res.clearCookie()` | Session is fully invalidated, not just the user field |
+
+---
+
+### User Enumeration Prevention
+
+Both login and signup are designed to prevent attackers from discovering which email addresses are registered:
+
+- **Login**: Always returns `"Invalid email or password."` regardless of whether the email exists in the database
+- **Signup**: Returns a generic `"Unable to create account. Please check your details."` when the email is already taken, rather than `"Email already in use"`
+
+---
+
+### Body Size Limits
+
+All JSON and URL-encoded bodies are capped at **50 KB**. Multipart file uploads are capped at **5 MB**. Requests exceeding these limits receive `413 Request Entity Too Large` as a JSON response (not a raw HTML Express error page).
+
+---
+
+### Error Handling & Information Leakage
+
+The global error handler in `server/index.js` ensures that:
+
+- **Stack traces are never sent to clients in production** (`NODE_ENV=production`)
+- All `500` errors return a generic `"An error occurred. Please try again."` message in production
+- Full error detail (including stack) is only shown in development
+- `413`, `422`, `429` errors all return structured JSON — never raw HTML pages that could expose framework version or file paths
+
+---
+
+### Static File Security
+
+Express static file serving is configured with:
+
+- `dotfiles: "deny"` — `.env`, `.git`, and any dotfile returns `403`
+- `index: false` — no automatic `index.html` serving from arbitrary directories, preventing directory traversal
+
+---
+
+### Startup Security Checks
+
+On every server start, `server/index.js` validates:
+
+1. `MONGODB_URI` is set — exits with `process.exit(1)` if missing
+2. `SESSION_SECRET` is set — exits if missing
+3. Warns to stdout if `SESSION_SECRET` is still the default placeholder value
+
+---
+
+### Security Logging (securityLogger.js)
+
+Every security-relevant event writes a structured JSON entry to stdout. In production, pipe this to a log aggregator (Datadog, Papertrail, etc.) or a SIEM.
+
+| Event | Trigger |
+|---|---|
+| `AUTH_SIGNUP` | Successful account creation |
+| `AUTH_SUCCESS` | Successful login (local or Google) |
+| `AUTH_FAIL` | Failed login attempt |
+| `AUTH_LOGOUT` | User logged out |
+| `ACCOUNT_LOCK` | Account locked after 5 failed attempts |
+| `UNAUTHORISED` | Unauthenticated request to a protected API route |
+| `NOSQL_SANITIZE` | `$` or `.` stripped from user input |
+| `CORS_BLOCK` | Request blocked from a non-allowlisted origin |
+| `FILE_UPLOAD` | File uploaded (logs MIME type and size, not content) |
+| `FILE_REJECT` | File rejected by MIME/extension check |
+| `SERVER_ERROR` | Unhandled exception in a route handler |
+
+All log entries include a UTC timestamp and the client IP. Sensitive fields (`password`, `token`) are automatically stripped before writing.
+
+Example log entry:
+```json
+{"ts":"2026-04-14T10:23:01.445Z","event":"AUTH_FAIL","ip":"82.45.11.200","email":"user@example.com","reason":"bad_credentials"}
+```
+
+---
+
+### Dependency Security
+
+Run the following periodically to check for known vulnerabilities in dependencies:
+
+```bash
+npm audit
+```
+
+To auto-fix non-breaking issues:
+
+```bash
+npm audit fix
+```
 
 ---
 
