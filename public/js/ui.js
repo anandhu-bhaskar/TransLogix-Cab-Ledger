@@ -74,3 +74,41 @@
   requestAnimationFrame(tick);
 })();
 
+// ── Hamburger nav toggle ──────────────────────────────────────────────────────
+(function () {
+  const menuBtn   = document.getElementById("menuBtn");
+  const mainNav   = document.getElementById("mainNav");
+  const navOverlay = document.getElementById("navOverlay");
+  if (!menuBtn || !mainNav) return;
+
+  function openNav() {
+    mainNav.classList.add("open");
+    menuBtn.classList.add("open");
+    menuBtn.setAttribute("aria-expanded", "true");
+    if (navOverlay) navOverlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeNav() {
+    mainNav.classList.remove("open");
+    menuBtn.classList.remove("open");
+    menuBtn.setAttribute("aria-expanded", "false");
+    if (navOverlay) navOverlay.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+
+  menuBtn.addEventListener("click", () => {
+    mainNav.classList.contains("open") ? closeNav() : openNav();
+  });
+
+  if (navOverlay) navOverlay.addEventListener("click", closeNav);
+
+  // Close on Escape
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeNav();
+  });
+
+  // Close on nav link click (for single-page feel)
+  mainNav.querySelectorAll("a").forEach(a => a.addEventListener("click", closeNav));
+})();
+

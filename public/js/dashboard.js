@@ -828,9 +828,12 @@ style.textContent = `
     #rowA, #rowB { grid-template-columns: 1fr !important; }
     #rowC        { grid-template-columns: 1fr 1fr !important; }
   }
-  @media (max-width: 620px) {
+  @media (max-width: 700px) {
     #kpiStrip, #metricsGrid { grid-template-columns: repeat(2, 1fr) !important; }
-    #rowC { grid-template-columns: 1fr !important; }
+    #rowA, #rowB, #rowC { grid-template-columns: 1fr !important; }
+  }
+  @media (max-width: 400px) {
+    #kpiStrip, #metricsGrid { grid-template-columns: 1fr 1fr !important; }
   }
 `;
 document.head.appendChild(style);

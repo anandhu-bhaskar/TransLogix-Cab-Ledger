@@ -20,7 +20,10 @@
           <span class="brand-badge" aria-hidden="true"></span>
           <span>Transport Billing<small>Settings</small></span>
         </a>
-        <nav class="nav" aria-label="Primary navigation">
+        <button class="hamburger" id="menuBtn" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <nav class="nav" id="mainNav" aria-label="Primary navigation">
           <a href="/pages/index.html">Dashboard</a>
           <a href="/pages/trips.html">Trips</a>
           <a href="/pages/payments.html">Payments</a>
@@ -31,6 +34,7 @@
         </nav>
       </div>
     </header>
+    <div class="nav-overlay" id="navOverlay"></div>
     <main class="container">
       <div style="max-width:520px;margin-top:14px">
         <section class="card">
