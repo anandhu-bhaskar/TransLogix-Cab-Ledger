@@ -1,8 +1,10 @@
 const express = require("express");
 
-const Trip            = require("../models/Trip");
-const Payment         = require("../models/Payment");
+const Trip             = require("../models/Trip");
+const Payment          = require("../models/Payment");
 const IndividualClient = require("../models/IndividualClient");
+const { invoiceDataRules } = require("../middleware/validate");
+const { strictLimiter }    = require("../middleware/rateLimits");
 
 const router = express.Router();
 
@@ -12,9 +14,7 @@ function toDate(val) {
   return d;
 }
 
-// POST /api/invoice/data
-// Returns structured billing data for an individual client + date range
-router.post("/data", async (req, res) => {
+router.post("/data", strictLimiter, ...invoiceDataRules, async (req, res) => {
   const { individualClientId, from, to, previousBalance } = req.body || {};
 
   if (!individualClientId) return res.status(400).json({ error: "individualClientId is required" });
@@ -22,15 +22,13 @@ router.post("/data", async (req, res) => {
   const client = await IndividualClient.findById(individualClientId);
   if (!client) return res.status(400).json({ error: "Client not found" });
 
-  const fromDate = toDate(from);
+  const fromDate  = toDate(from);
   const toDateVal = toDate(to);
   if (!fromDate || !toDateVal) return res.status(400).json({ error: "from and to must be valid dates" });
 
-  // End of day for toDate
   const toEnd = new Date(toDateVal);
   toEnd.setHours(23, 59, 59, 999);
 
-  // Trips where this client is a direct payer
   const trips = await Trip.find({
     paymentMethod: "direct",
     "payers.client": client._id,
@@ -39,7 +37,6 @@ router.post("/data", async (req, res) => {
     .sort({ date: 1 })
     .populate("workers");
 
-  // Payments received from this client
   const payments = await Payment.find({
     individualClient: client._id,
     date: { $gte: fromDate, $lte: toEnd }
@@ -47,23 +44,22 @@ router.post("/data", async (req, res) => {
 
   const prevBal = Number(previousBalance) || 0;
 
-  // Normalise trip data: calculate per-person share
   const tripData = trips.map(t => {
     const payerCount = (t.payers || []).length || 1;
-    const share = Number(t.totalAmount) / payerCount;
+    const share      = Number(t.totalAmount) / payerCount;
     const routeLabel = t.origin && t.destination
       ? `${t.origin} → ${t.destination}`
       : t.customRouteName || "";
     const people = t.numberOfPeople
       || ((t.workers || []).length + (t.customWorkerNames || []).length) || null;
     return {
-      date:    t.date,
-      origin:  t.origin,
+      date:        t.date,
+      origin:      t.origin,
       destination: t.destination,
-      route:   routeLabel,
-      variant: t.variant,
+      route:       routeLabel,
+      variant:     t.variant,
       people,
-      amount:  share
+      amount:      share
     };
   });
 

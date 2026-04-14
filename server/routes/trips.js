@@ -1,10 +1,11 @@
 const express = require("express");
 
-const Trip = require("../models/Trip");
-const Worker = require("../models/Worker");
-const Route = require("../models/Route");
-const BusinessClient = require("../models/BusinessClient");
+const Trip            = require("../models/Trip");
+const Worker          = require("../models/Worker");
+const Route           = require("../models/Route");
+const BusinessClient  = require("../models/BusinessClient");
 const IndividualClient = require("../models/IndividualClient");
+const { createTripRules, mongoIdParam } = require("../middleware/validate");
 
 const router = express.Router();
 
@@ -17,12 +18,16 @@ function toDate(val) {
 router.get("/", async (req, res) => {
   const { from, to, paymentMethod } = req.query;
   const q = {};
+
   if (from || to) {
     q.date = {};
-    if (from) q.date.$gte = toDate(from);
-    if (to) q.date.$lte = toDate(to);
+    if (from) { const d = toDate(from); if (d) q.date.$gte = d; }
+    if (to)   { const d = toDate(to);   if (d) q.date.$lte = d; }
   }
-  if (paymentMethod) q.paymentMethod = paymentMethod;
+
+  if (paymentMethod && ["direct", "partner"].includes(paymentMethod)) {
+    q.paymentMethod = paymentMethod;
+  }
 
   const trips = await Trip.find(q)
     .sort({ date: -1 })
@@ -34,7 +39,7 @@ router.get("/", async (req, res) => {
   res.json(trips);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", ...createTripRules, async (req, res) => {
   const {
     date,
     origin,
@@ -49,8 +54,8 @@ router.post("/", async (req, res) => {
     totalAmount,
     notes,
     paymentMethod,
-    payerClientIds,   // array of IndividualClient IDs for direct
-    partnerClientId   // BusinessClient ID for partner
+    payerClientIds,
+    partnerClientId
   } = req.body || {};
 
   const d = toDate(date);
@@ -68,9 +73,8 @@ router.post("/", async (req, res) => {
   if (!orig) return res.status(400).json({ error: "Origin is required." });
   if (!dest) return res.status(400).json({ error: "Destination is required." });
 
-  // Resolve workers
   const workerIdsArr = Array.isArray(workerIds) ? workerIds : [];
-  const workerDocs = await Worker.find({ _id: { $in: workerIdsArr } });
+  const workerDocs   = await Worker.find({ _id: { $in: workerIdsArr } });
   const uniqueWorkerIds = [...new Set(workerDocs.map(w => String(w._id)))];
 
   const tripPayload = {
@@ -85,7 +89,7 @@ router.post("/", async (req, res) => {
     unspecifiedWorkers: !!unspecifiedWorkers,
     numberOfPeople: Number(numberOfPeople) || undefined,
     parkingCharges: Number(parkingCharges) || 0,
-    otherExpenses: Number(otherExpenses) || 0,
+    otherExpenses:  Number(otherExpenses)  || 0,
     totalAmount: total,
     notes: notes ? String(notes).trim() : "",
     paymentMethod
@@ -99,21 +103,20 @@ router.post("/", async (req, res) => {
     if (!payerDocs.length) return res.status(400).json({ error: "No valid payer clients found." });
 
     const amountEach = Number((total / payerDocs.length).toFixed(2));
-    tripPayload.payers = payerDocs.map(c => ({ client: c._id, amount: amountEach }));
+    tripPayload.payers          = payerDocs.map(c => ({ client: c._id, amount: amountEach }));
     tripPayload.amountPerPerson = amountEach;
 
   } else if (paymentMethod === "partner") {
     if (!partnerClientId) return res.status(400).json({ error: "Partner client is required." });
     const partner = await BusinessClient.findById(partnerClientId);
     if (!partner) return res.status(400).json({ error: "Invalid partner client." });
-    tripPayload.businessClient = partner._id;
+    tripPayload.businessClient  = partner._id;
     const peopleCount = Number(numberOfPeople) || uniqueWorkerIds.length || 1;
     tripPayload.amountPerPerson = Number((total / peopleCount).toFixed(2));
   }
 
   const created = await Trip.create(tripPayload);
 
-  // Side effects
   if (created.paymentMethod === "direct" && created.payers.length) {
     for (const p of created.payers) {
       await IndividualClient.findByIdAndUpdate(p.client, {
@@ -137,13 +140,12 @@ router.post("/", async (req, res) => {
   res.status(201).json(trip);
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", ...mongoIdParam("id"), async (req, res) => {
   const trip = await Trip.findById(req.params.id);
   if (!trip) return res.status(404).json({ error: "Not found." });
 
   await Trip.deleteOne({ _id: trip._id });
 
-  // Reverse side effects
   if (trip.paymentMethod === "direct" && trip.payers.length) {
     for (const p of trip.payers) {
       await IndividualClient.findByIdAndUpdate(p.client, { $inc: { amountOwed: -p.amount } });
@@ -154,7 +156,7 @@ router.delete("/:id", async (req, res) => {
       $inc: { runningBalance: -trip.totalAmount }
     });
   }
-  // legacy
+  // Legacy cleanup
   if (trip.payerType === "individual" && trip.individualClient) {
     await IndividualClient.findByIdAndUpdate(trip.individualClient, {
       $inc: { amountOwed: -trip.totalAmount }

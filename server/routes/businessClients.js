@@ -1,5 +1,6 @@
 const express = require("express");
 const BusinessClient = require("../models/BusinessClient");
+const { createBusinessClientRules, mongoIdParam } = require("../middleware/validate");
 
 const router = express.Router();
 
@@ -8,7 +9,7 @@ router.get("/", async (req, res) => {
   res.json(clients);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", ...createBusinessClientRules, async (req, res) => {
   const { name, runningBalance } = req.body || {};
   if (!name || !String(name).trim()) return res.status(400).json({ error: "name is required" });
   const payload = { name: String(name).trim() };
@@ -18,11 +19,11 @@ router.post("/", async (req, res) => {
     const created = await BusinessClient.create(payload);
     res.status(201).json(created);
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(400).json({ error: "Could not create business client." });
   }
 });
 
-router.put("/:id/balance", async (req, res) => {
+router.put("/:id/balance", ...mongoIdParam("id"), async (req, res) => {
   const { runningBalance } = req.body || {};
   const val = Number(runningBalance);
   if (!Number.isFinite(val)) return res.status(400).json({ error: "runningBalance must be a number" });
@@ -36,11 +37,10 @@ router.put("/:id/balance", async (req, res) => {
   res.json(updated);
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", ...mongoIdParam("id"), async (req, res) => {
   const deleted = await BusinessClient.findByIdAndDelete(req.params.id);
   if (!deleted) return res.status(404).json({ error: "not found" });
   res.json({ ok: true });
 });
 
 module.exports = router;
-

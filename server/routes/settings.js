@@ -1,5 +1,6 @@
-const express = require("express");
+const express  = require("express");
 const Settings = require("../models/Settings");
+const { updateSettingsRules } = require("../middleware/validate");
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.get("/", async (req, res) => {
   res.json(s);
 });
 
-router.put("/", async (req, res) => {
+router.put("/", ...updateSettingsRules, async (req, res) => {
   const { businessName, businessAddress, bankName, accountNumber, sortCode, whatsappBusinessNumber } = req.body || {};
   const s = await getSingleton();
 
@@ -30,4 +31,3 @@ router.put("/", async (req, res) => {
 });
 
 module.exports = router;
-
