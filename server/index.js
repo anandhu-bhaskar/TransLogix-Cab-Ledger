@@ -22,7 +22,6 @@ const passport   = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const helmet     = require("helmet");
-const mongoSanitize = require("express-mongo-sanitize");
 
 const User        = require("./models/User");
 const requireAuth = require("./middleware/requireAuth");
@@ -97,14 +96,27 @@ app.use(cors({
 app.use(express.json({ limit: "50kb" }));
 app.use(express.urlencoded({ extended: true, limit: "50kb" }));
 
-// ── NoSQL injection prevention ────────────────────────────────────────────
-// Strips $ and . from req.body, req.query, req.params
-app.use(mongoSanitize({
-  replaceWith: "_",
-  onSanitize: ({ req, key }) => {
-    log("NOSQL_SANITIZE", { ip: req.ip, key, path: req.path });
+// ── NoSQL injection prevention ─────────────────────────────────────────────
+// express-mongo-sanitize reassigns req.query which is a read-only getter in
+// Express 5, crashing every request. This mutates the existing objects instead.
+function sanitizeNoSQL(obj, req, source) {
+  if (!obj || typeof obj !== "object") return;
+  for (const key of Object.keys(obj)) {
+    if (key.startsWith("$") || key.includes(".")) {
+      log("NOSQL_SANITIZE", { ip: req?.ip, key, path: req?.path, source });
+      obj[key] = typeof obj[key] === "string" ? "_" : undefined;
+      delete obj[key];
+    } else {
+      sanitizeNoSQL(obj[key], req, source);
+    }
   }
-}));
+}
+app.use((req, _res, next) => {
+  sanitizeNoSQL(req.body,   req, "body");
+  sanitizeNoSQL(req.params, req, "params");
+  sanitizeNoSQL(req.query,  req, "query");
+  next();
+});
 
 // ── HTTP Parameter Pollution protection (hpp is incompatible with Express 5) ─
 // When a query param appears multiple times, keep only the last value.
