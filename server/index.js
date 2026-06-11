@@ -23,7 +23,6 @@ const LocalStrategy = require("passport-local").Strategy;
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const helmet     = require("helmet");
 const mongoSanitize = require("express-mongo-sanitize");
-const hpp        = require("hpp");
 
 const User        = require("./models/User");
 const requireAuth = require("./middleware/requireAuth");
@@ -107,8 +106,17 @@ app.use(mongoSanitize({
   }
 }));
 
-// ── HTTP Parameter Pollution protection ───────────────────────────────────
-app.use(hpp());
+// ── HTTP Parameter Pollution protection (hpp is incompatible with Express 5) ─
+// When a query param appears multiple times, keep only the last value.
+app.use((req, _res, next) => {
+  const q = req.query;
+  if (q && typeof q === "object") {
+    for (const key of Object.keys(q)) {
+      if (Array.isArray(q[key])) q[key] = q[key][q[key].length - 1];
+    }
+  }
+  next();
+});
 
 // ── Sessions ───────────────────────────────────────────────────────────────
 app.use(
