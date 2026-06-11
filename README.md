@@ -2,6 +2,10 @@
 
 A full-stack web application for small transport operators to manage trips, track client balances, record payments, generate invoices, and visualise business analytics — all from a single, mobile-friendly dashboard.
 
+**Live demo:** [https://translogix-cab-ledger.onrender.com](https://translogix-cab-ledger.onrender.com)
+
+![TransLogix Analytics Dashboard](docs/dashboard.png)
+
 ---
 
 ## Table of Contents
@@ -237,7 +241,7 @@ GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 npm run dev
 ```
 
-The app runs at `http://localhost:3000`. Sign up for an account on the login page.
+The app runs at `http://localhost:3000` (or your deployed URL). Sign up for an account on the login page.
 
 ### 5. (Optional) Seed demo data
 
@@ -617,7 +621,7 @@ name  String (required, unique, case-insensitive index)
 ### Google OAuth (optional)
 1. Create a project in [Google Cloud Console](https://console.cloud.google.com)
 2. Enable the "Google+ API" or "Google Identity"
-3. Create OAuth 2.0 credentials; set the redirect URI to `http://localhost:3000/auth/google/callback` (and your production URL)
+3. Create OAuth 2.0 credentials; add redirect URIs for both local (`http://localhost:3000/auth/google/callback`) and production (`https://translogix-cab-ledger.onrender.com/auth/google/callback`)
 4. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to `.env`
 5. If a Google account email matches an existing local account, they are merged automatically
 
@@ -879,16 +883,26 @@ Payment proof files are uploaded directly to Cloudinary via the server (not clie
 
 ## Deployment
 
+### Live deployment
+
+The app is deployed on Render at:
+**[https://translogix-cab-ledger.onrender.com](https://translogix-cab-ledger.onrender.com)**
+
+> **Note:** The free Render tier spins down after 15 minutes of inactivity. The first request after a period of inactivity may take ~30 seconds to respond while the server wakes up.
+
 ### Render.com (recommended)
+
+A `render.yaml` is included in the repo for one-click deploy. Or manually:
 
 1. Push your code to GitHub
 2. Go to [render.com](https://render.com) → **New Web Service**
-3. Connect your GitHub repo
+3. Connect your GitHub repo (`anandhu-bhaskar/TransLogix-Cab-Ledger`)
 4. Set:
    - **Build command**: `npm install`
    - **Start command**: `npm start`
 5. Add all environment variables from the table above under **Environment**
 6. Deploy — Render provides a free HTTPS URL
+7. After deploy, add `https://<your-render-url>/auth/google/callback` to your Google OAuth **Authorised redirect URIs**
 
 ### Self-hosted / VPS
 
