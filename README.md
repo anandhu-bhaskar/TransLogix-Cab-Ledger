@@ -3,6 +3,7 @@
 A full-stack web application for small transport operators to manage trips, track client balances, record payments, generate invoices, and visualise business analytics — all from a single, mobile-friendly dashboard.
 
 **Live demo:** [https://translogix-cab-ledger.onrender.com](https://translogix-cab-ledger.onrender.com)
+> Hosted on Render's free tier — may take ~30 seconds to load on first visit while the server wakes up.
 
 ![TransLogix Analytics Dashboard](docs/dashboard.png)
 
